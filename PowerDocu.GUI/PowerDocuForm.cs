@@ -101,6 +101,7 @@ namespace PowerDocu.GUI
                 }
                 startDocumentationButton.Visible = true;
                 startImageGenerationButton.Visible = true;
+                openOutputFolderButton.Visible = false;
             }
         }
 
