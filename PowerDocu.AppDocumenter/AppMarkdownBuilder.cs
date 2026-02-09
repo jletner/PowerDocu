@@ -350,7 +350,7 @@ namespace PowerDocu.AppDocumenter
                         }
                         else
                         {
-                            tableRows.Add(new MdTableRow(rule.Property, rule.InvariantScript));
+                            tableRows.Add(new MdTableRow(rule.Property, $"`{rule.InvariantScript}`"));
                         }
                     }
                 }
@@ -416,11 +416,11 @@ namespace PowerDocu.AppDocumenter
             {
                 StringBuilder table = new StringBuilder("<table border=\"0\">");
                 table.Append("<tr><td style=\"background-color:#ccffcc; width:50%;\">")
-                     .Append(rule.InvariantScript)
+                     .Append($"`{rule.InvariantScript}`")
                      .Append("<td style=\"background-color:#ffcccc; width:50%;\">").Append(defaultValue).Append("</td></tr></table>");
                 return new MdTableRow(rule.Property, new MdRawMarkdownSpan(table.ToString()));
             }
-            return new MdTableRow(rule.Property, rule.InvariantScript);
+            return new MdTableRow(rule.Property, $"`{rule.InvariantScript}`");
         }
 
         private void addAppDataSources()
