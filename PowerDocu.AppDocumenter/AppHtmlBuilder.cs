@@ -196,8 +196,9 @@ namespace PowerDocu.AppDocumenter
                         else
                         {
                             string screenFileName = screenFileNames.GetValueOrDefault(reference.Control.Screen()?.Name, "#");
+                            string controlAnchor = SanitizeAnchorId(reference.Control.Name);
                             body.Append(TableRowRaw(
-                                Link(reference.Control.Name + " (" + reference.Control.Screen()?.Name + ")", screenFileName),
+                                Link(reference.Control.Name + " (" + reference.Control.Screen()?.Name + ")", screenFileName + "#" + controlAnchor),
                                 Encode(reference.RuleProperty)));
                         }
                     }
@@ -217,7 +218,20 @@ namespace PowerDocu.AppDocumenter
                     body.Append(TableStart("Control", "Property"));
                     foreach (ControlPropertyReference reference in references.OrderBy(o => o.Control.Name).ThenBy(o => o.RuleProperty))
                     {
-                        body.Append(TableRow(reference.Control.Name + " (" + reference.Control.Screen()?.Name + ")", reference.RuleProperty));
+                        if (reference.Control.Type == "appinfo")
+                        {
+                            body.Append(TableRowRaw(
+                                Link(reference.Control.Name, appDetailsFileName),
+                                Encode(reference.RuleProperty)));
+                        }
+                        else
+                        {
+                            string screenFileName = screenFileNames.GetValueOrDefault(reference.Control.Screen()?.Name, "#");
+                            string controlAnchor = SanitizeAnchorId(reference.Control.Name);
+                            body.Append(TableRowRaw(
+                                Link(reference.Control.Name + " (" + reference.Control.Screen()?.Name + ")", screenFileName + "#" + controlAnchor),
+                                Encode(reference.RuleProperty)));
+                        }
                     }
                     body.AppendLine(TableEnd());
                 }
@@ -389,12 +403,12 @@ namespace PowerDocu.AppDocumenter
                 StringBuilder body = new StringBuilder();
                 body.AppendLine(Heading(1, content.appProperties.header));
                 body.AppendLine(buildMetadataTable());
-                body.AppendLine(Heading(2, screen.Name));
+                body.AppendLine(HeadingWithId(2, screen.Name, SanitizeAnchorId(screen.Name)));
                 body.Append(buildControlTable(screen));
 
                 foreach (ControlEntity control in content.appControls.allControls.Where(o => o.Type != "appinfo" && o.Type != "screen" && screen.Equals(o.Screen())).OrderBy(o => o.Name).ToList())
                 {
-                    body.AppendLine(Heading(2, control.Name));
+                    body.AppendLine(HeadingWithId(2, control.Name, SanitizeAnchorId(control.Name)));
                     body.Append(buildControlTable(control));
                 }
 

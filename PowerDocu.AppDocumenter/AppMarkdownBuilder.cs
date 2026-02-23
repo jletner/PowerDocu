@@ -191,10 +191,17 @@ namespace PowerDocu.AppDocumenter
                     List<MdTableRow> tableRows = new List<MdTableRow>();
                     foreach (ControlPropertyReference reference in references.OrderBy(o => o.Control.Name).ThenBy(o => o.RuleProperty))
                     {
-                        //link to the screen instead of the control directly for the moment, as the directly generated anchor link (#" + control.Name.ToLower()) doesn't work the same way in DevOps and GitHub
-                        tableRows.Add(new MdTableRow(new MdLinkSpan(reference.Control.Name + " (" + reference.Control.Screen()?.Name + ")",
-                                                            ("screen " + reference.Control.Screen()?.Name + " " + content.filename + ".md").Replace(" ", "-")),
-                                                    reference.RuleProperty));
+                        if (reference.Control.Type == "appinfo")
+                        {
+                            tableRows.Add(new MdTableRow(new MdLinkSpan("App", appDetailsFileName), reference.RuleProperty));
+                        }
+                        else
+                        {
+                            //link to the screen instead of the control directly for the moment, as the directly generated anchor link (#" + control.Name.ToLower()) doesn't work the same way in DevOps and GitHub
+                            tableRows.Add(new MdTableRow(new MdLinkSpan(reference.Control.Name + " (" + reference.Control.Screen()?.Name + ")",
+                                                                ("screen " + reference.Control.Screen()?.Name + " " + content.filename + ".md").Replace(" ", "-")),
+                                                        reference.RuleProperty));
+                        }
                     }
                     variablesDocument.Root.Add(new MdTable(new MdTableRow("Control", "Property"), tableRows));
                 }
@@ -350,7 +357,7 @@ namespace PowerDocu.AppDocumenter
                         }
                         else
                         {
-                            tableRows.Add(new MdTableRow(rule.Property, $"`{rule.InvariantScript}`"));
+                            tableRows.Add(new MdTableRow(rule.Property, getCodeBlock(rule.InvariantScript)));
                         }
                     }
                 }
@@ -416,11 +423,11 @@ namespace PowerDocu.AppDocumenter
             {
                 StringBuilder table = new StringBuilder("<table border=\"0\">");
                 table.Append("<tr><td style=\"background-color:#ccffcc; width:50%;\">")
-                     .Append($"`{rule.InvariantScript}`")
+                     .Append(getCodeBlock(rule.InvariantScript))
                      .Append("<td style=\"background-color:#ffcccc; width:50%;\">").Append(defaultValue).Append("</td></tr></table>");
                 return new MdTableRow(rule.Property, new MdRawMarkdownSpan(table.ToString()));
             }
-            return new MdTableRow(rule.Property, $"`{rule.InvariantScript}`");
+            return new MdTableRow(rule.Property, getCodeBlock(rule.InvariantScript));
         }
 
         private void addAppDataSources()

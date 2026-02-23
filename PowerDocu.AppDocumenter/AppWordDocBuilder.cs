@@ -153,7 +153,14 @@ namespace PowerDocu.AppDocumenter
                     varReferenceTable.Append(CreateHeaderRow(new Text("Control"), new Text("Property")));
                     foreach (ControlPropertyReference reference in references.OrderBy(o => o.Control.Name).ThenBy(o => o.RuleProperty))
                     {
-                        varReferenceTable.Append(CreateRow(new Text(reference.Control.Name + " (" + reference.Control.Screen()?.Name + ")"), new Text(reference.RuleProperty)));
+                        if (reference.Control.Type == "appinfo")
+                        {
+                            varReferenceTable.Append(CreateRow(new Text("App"), new Text(reference.RuleProperty)));
+                        }
+                        else
+                        {
+                            varReferenceTable.Append(CreateRow(new Text(reference.Control.Name + " (" + reference.Control.Screen()?.Name + ")"), new Text(reference.RuleProperty)));
+                        }
                     }
                 }
                 table.Append(CreateRow(new Text(var), varReferenceTable));
