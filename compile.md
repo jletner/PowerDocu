@@ -4,7 +4,7 @@ The information below is one possible way of compiling PowerDocu. Other options 
 
 ## Prerequisites
 To compile PowerDocu, the following prerequisites need to be installed on your Windows machine:
-* a latest .NET SDK (e.g. .NET 7) from https://aka.ms/dotnet/download  
+* a latest .NET SDK (e.g. .NET 8) from https://aka.ms/dotnet/download  
 * Git from https://git-scm.com/
 * Visual Studio Code https://code.visualstudio.com/download
 * Once VSCode has been installed, you need to add the C# extension: https://marketplace.visualstudio.com/items?itemName=ms-dotnettools.csharp

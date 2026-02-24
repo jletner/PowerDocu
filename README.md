@@ -1,10 +1,17 @@
 # PowerDocu
+
+[![GitHub release](https://img.shields.io/github/v/release/modery/PowerDocu)](https://github.com/modery/PowerDocu/releases)
+[![License: MIT](https://img.shields.io/github/license/modery/PowerDocu)](LICENSE)
+[![.NET](https://img.shields.io/badge/.NET-10.0-512BD4)](https://dotnet.microsoft.com/download)
+[![GitHub issues](https://img.shields.io/github/issues/modery/PowerDocu)](https://github.com/modery/PowerDocu/issues)
+[![GitHub stars](https://img.shields.io/github/stars/modery/PowerDocu)](https://github.com/modery/PowerDocu/stargazers)
+
 ![PowerDocu](Images/PowerDocu%20-%20Info%20Header.png)
 After you have built a Flow in Power Automate or a canvas app in Power Apps, you may consider documenting it as to allow others to get a better understanding of how it works, to ensure that any specific configuration in it is kept somewhere else as well, or for other reasons. However, manually documenting the technical implementation can be quite time consuming.
 
 This is where **PowerDocu** can help!
 
-PowerDocu contains a **Windows GUI executable** to easily perform technical documentations. It allows the automatic generation of technical documentation based on a provided exported Flow package, an exported Power Apps canvas app, or an exported Solution package. The documentation can be generated as a Word document or in Markdown format (for example to host it in GitHub or Azure DevOps).
+PowerDocu contains a **Windows GUI executable** to easily perform technical documentations. It allows the automatic generation of technical documentation based on a provided exported Flow package, an exported Power Apps canvas app, or an exported Solution package. The documentation can be generated as a Word document, as HTML, or in Markdown format (for example to host it in GitHub or Azure DevOps).
 
 ![PowerDocu.GUI](Images/PowerDocu.GUI.png)
 
@@ -29,7 +36,7 @@ Visit [Examples](./examples/examples.md) for more details. The screenshots below
 
 The documentation for each Flow includes
 
-1. A generated Word document or Markdown content including sections on
+1. A generated Word document, HTML, or Markdown content including sections on
     1. General information of the Flow
     2. The connectors that are used by the Flow
     3. The Trigger that starts the Flow
@@ -40,7 +47,7 @@ The documentation for each Flow includes
 
 The documentation for each canvas app includes
 
-1. A generated Word document or Markdown content including sections on
+1. A generated Word document, HTML, or Markdown content including sections on
     1. General information of the app and its properties
     2. The global variables and collections used in the app (and in which controls they are used)
     3. The Data Sources used

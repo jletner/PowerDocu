@@ -2,20 +2,16 @@
 
 PowerDocu is using the following software/libraries:
 
-To generate Word documents: [DocumentFormat.OpenXml 3.3.0](https://www.nuget.org/packages/DocumentFormat.OpenXml)
-
-To generate Markdown files: [Grynwald.MarkdownGenerator 3.0.106](https://www.nuget.org/packages/Grynwald.MarkdownGenerator/)
-
-To support JSON parsing: [Newtonsoft.Json 13.0.3](https://www.nuget.org/packages/Newtonsoft.Json)
-
-To support SVG handling: [Svg 3.4.7](https://www.nuget.org/packages/svg)
-
-To generate Graphviz graphs: [Rubjerg.Graphviz 3.0.2](https://www.nuget.org/packages/Rubjerg.Graphviz)
-
-To support managing image files: [System.Drawing.Common 9.0.6](https://www.nuget.org/packages/System.Drawing.Common)
-
-To parse websites (Connector list): [HtmlAgilityPack 1.12.1](https://www.nuget.org/packages/HtmlAgilityPack)
-
-To provide commandline capabilities: [CommandLineParser 2.9.1](https://www.nuget.org/packages/CommandLineParser)
-
-To use icons within the GUI: [Fontawesome.sharp 6.6.0](https://www.nuget.org/packages/Fontawesome.sharp)
+| Package | Version | Purpose |
+| ------- | ------- | ------- |
+| [DocumentFormat.OpenXml](https://www.nuget.org/packages/DocumentFormat.OpenXml) | 3.4.1 | Generate Word documents |
+| [Grynwald.MarkdownGenerator](https://www.nuget.org/packages/Grynwald.MarkdownGenerator/) | 3.0.106 | Generate Markdown files |
+| [Newtonsoft.Json](https://www.nuget.org/packages/Newtonsoft.Json) | 13.0.4 | JSON parsing |
+| [Svg](https://www.nuget.org/packages/svg) | 3.4.7 | SVG handling |
+| [Rubjerg.Graphviz](https://www.nuget.org/packages/Rubjerg.Graphviz) | 3.0.4 | Generate Graphviz graphs |
+| [System.Drawing.Common](https://www.nuget.org/packages/System.Drawing.Common) | 10.0.3 | Image file management |
+| [HtmlAgilityPack](https://www.nuget.org/packages/HtmlAgilityPack) | 1.12.4 | Parse websites (Connector list) |
+| [CommandLineParser](https://www.nuget.org/packages/CommandLineParser) | 2.9.1 | Command-line capabilities |
+| [FontAwesome.Sharp](https://www.nuget.org/packages/Fontawesome.sharp) | 6.6.0 | Icons within the GUI |
+| [Microsoft.PowerFx.Core](https://www.nuget.org/packages/Microsoft.PowerFx.Core) | 1.8.1 | Power Fx expression parsing |
+| [YamlDotNet](https://www.nuget.org/packages/YamlDotNet) | 16.3.0 | YAML parsing |
