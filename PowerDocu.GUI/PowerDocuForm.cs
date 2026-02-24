@@ -335,6 +335,17 @@ namespace PowerDocu.GUI
                 ClientSize.Width - convertToDPISpecific(30),
                 ClientSize.Height - convertToDPISpecific(25)
             );
+            if (processInfoListView != null)
+            {
+                processInfoListView.Size = new Size(
+                    generateDocuPanel.Width - convertToDPISpecific(30),
+                    generateDocuPanel.Height - processInfoListView.Location.Y - convertToDPISpecific(15)
+                );
+                if (processInfoListView.Columns.Count > 1)
+                {
+                    processInfoListView.Columns[0].Width = processInfoListView.Width - processInfoListView.Columns[1].Width - convertToDPISpecific(5);
+                }
+            }
         }
 
         private void DpiChangedHandler(object sender, EventArgs e)
