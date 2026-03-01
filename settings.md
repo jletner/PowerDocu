@@ -7,10 +7,10 @@ PowerDocu provides a range of configuration settings that control what gets docu
 Settings are stored as a JSON file at:
 
 ```
-%APPDATA%\PowerDocu.GUI\powerdocu.config.json
+%APPDATA%\PowerDocu\powerdocu.config.json
 ```
 
-For example: `C:\Users\<username>\AppData\Roaming\PowerDocu.GUI\powerdocu.config.json`
+For example: `C:\Users\<username>\AppData\Roaming\PowerDocu\powerdocu.config.json`
 
 The configuration file is loaded automatically when the GUI starts. In the GUI, click **"Save current configuration as default"** on the Settings tab to persist your current settings.
 
@@ -92,6 +92,13 @@ Controls how flow actions are ordered in the generated documentation.
 
 > This setting is only relevant when **Document Flows** is enabled.
 
+### Document Agents
+
+Whether to generate documentation for Copilot Studio agents (chatbots) contained in the solution.
+
+- **Config key:** `documentAgents`
+- **Default:** `true`
+- **CLI flag:** Not available via CLI
 
 ### Document Apps
 
@@ -203,6 +210,7 @@ Whether PowerDocu should automatically check for newer releases when the GUI app
   "documentSampleData": false,
   "documentSolution": true,
   "documentFlows": true,
+  "documentAgents": true,
   "documentApps": true,
   "documentAppProperties": true,
   "documentAppVariables": true,
