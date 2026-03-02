@@ -467,7 +467,7 @@ namespace PowerDocu.SolutionDocumenter
                             body.AppendLine(Heading(6, "Form: " + formEntity.GetFormName()));
                             foreach (FormTab tab in tabs)
                             {
-                                body.AppendLine(Paragraph("<strong>Tab:</strong> " + Encode(tab.GetName()) + (tab.IsVisible() ? "" : " (hidden)")));
+                                body.AppendLine(ParagraphRaw("<strong>Tab:</strong> " + Encode(tab.GetName()) + (tab.IsVisible() ? "" : " (hidden)")));
                                 foreach (FormSection section in tab.GetSections())
                                 {
                                     List<FormControl> controls = section.GetControls();
