@@ -41,24 +41,22 @@ namespace PowerDocu.SolutionDocumenter
                 ("Solution Components", solutionFileName + "#solution-components", 0)
             };
 
-            // Add sub-entries for each component section with their individual items
+            // Environment Variables appear first in the body, before the component types
             if (content.solution.EnvironmentVariables.Count > 0)
             {
                 navItems.Add(("Environment Variables", solutionFileName + "#environment-variables", 1));
-                foreach (EnvironmentVariableEntity envVar in content.solution.EnvironmentVariables)
+                foreach (EnvironmentVariableEntity envVar in content.solution.EnvironmentVariables.OrderBy(e => e.DisplayName))
                 {
                     navItems.Add((envVar.DisplayName, solutionFileName + "#" + SanitizeAnchorId("envvar-" + envVar.Name), 2));
                 }
             }
+
+            // Add sub-entries for each component section, using the same order as Statistics
             foreach (string componentType in content.solution.GetComponentTypes())
             {
-                string label = componentType switch
-                {
-                    "Role" => "Security Roles",
-                    "Entity" => "Tables",
-                    _ => componentType
-                };
-                navItems.Add((label, solutionFileName + "#" + SanitizeAnchorId(label), 1));
+                string label = GetComponentSectionLabel(componentType);
+                string anchorId = GetComponentSectionAnchorId(componentType);
+                navItems.Add((label, solutionFileName + "#" + anchorId, 1));
 
                 // Add individual items as level-2 entries
                 switch (componentType)
@@ -135,12 +133,49 @@ namespace PowerDocu.SolutionDocumenter
         {
             body.AppendLine(HeadingWithId(2, "Statistics", "statistics"));
             body.Append(TableStart("Component Type", "Number of Components"));
+            if (content.solution.EnvironmentVariables.Count > 0)
+            {
+                string envLink = $"<a href=\"#environment-variables\">Environment Variables</a>";
+                body.Append(TableRowRaw(envLink, Encode(content.solution.EnvironmentVariables.Count.ToString())));
+            }
             foreach (string componentType in content.solution.GetComponentTypes())
             {
                 List<SolutionComponent> components = content.solution.Components.Where(c => c.Type == componentType).OrderBy(c => c.reqdepDisplayName).ToList();
-                body.Append(TableRow(componentType, components.Count.ToString()));
+                string anchorId = GetComponentSectionAnchorId(componentType);
+                string link = $"<a href=\"#{Encode(anchorId)}\">{Encode(componentType)}</a>";
+                body.Append(TableRowRaw(link, Encode(components.Count.ToString())));
             }
             body.AppendLine(TableEnd());
+        }
+
+        /// <summary>
+        /// Returns the anchor ID used for the section heading of a given component type.
+        /// Must be kept in sync with the IDs used in addSolutionComponents / render methods.
+        /// </summary>
+        private static string GetComponentSectionAnchorId(string componentType)
+        {
+            return componentType switch
+            {
+                "Role" => "security-roles",
+                "Entity" => "tables",
+                "Option Set" => "option-sets",
+                _ => SanitizeAnchorId(componentType)
+            };
+        }
+
+        /// <summary>
+        /// Returns the display label for a component type section.
+        /// Must be kept in sync with the heading text used in addSolutionComponents / render methods.
+        /// </summary>
+        private static string GetComponentSectionLabel(string componentType)
+        {
+            return componentType switch
+            {
+                "Role" => "Security Roles",
+                "Entity" => "Tables",
+                "Option Set" => "Option Sets",
+                _ => componentType
+            };
         }
 
         private void AddPublisherInfo(StringBuilder body)
@@ -214,7 +249,7 @@ namespace PowerDocu.SolutionDocumenter
         private void addEnvironmentVariables(StringBuilder body)
         {
             body.AppendLine(HeadingWithId(3, "Environment Variables", "environment-variables"));
-            foreach (EnvironmentVariableEntity environmentVariable in content.solution.EnvironmentVariables)
+            foreach (EnvironmentVariableEntity environmentVariable in content.solution.EnvironmentVariables.OrderBy(e => e.DisplayName))
             {
                 body.AppendLine(HeadingWithId(4, environmentVariable.DisplayName, SanitizeAnchorId("envvar-" + environmentVariable.Name)));
                 body.Append(TableStart("Property", "Value"));

@@ -43,13 +43,35 @@ namespace PowerDocu.SolutionDocumenter
         {
             List<MdTableRow> tableRows = new List<MdTableRow>();
             solutionDoc.Root.Add(new MdHeading("Statistics", 2));
+            if (content.solution.EnvironmentVariables.Count > 0)
+            {
+                var envLink = new MdLinkSpan("Environment Variables", "#environment-variables");
+                tableRows.Add(new MdTableRow(envLink, new MdTextSpan(content.solution.EnvironmentVariables.Count.ToString())));
+            }
             foreach (string componentType in content.solution.GetComponentTypes())
             {
                 List<SolutionComponent> components = content.solution.Components.Where(c => c.Type == componentType).OrderBy(c => c.reqdepDisplayName).ToList();
-                tableRows.Add(new MdTableRow(componentType, components.Count.ToString()));
+                string sectionHeading = GetComponentSectionHeading(componentType);
+                var link = new MdLinkSpan(componentType, "#" + sectionHeading.ToLowerInvariant().Replace(" ", "-"));
+                tableRows.Add(new MdTableRow(link, new MdTextSpan(components.Count.ToString())));
             }
             if (tableRows.Count > 0)
                 solutionDoc.Root.Add(new MdTable(new MdTableRow("Component Type", "Number of Components"), tableRows));
+        }
+
+        /// <summary>
+        /// Returns the heading text used for the section of a given component type.
+        /// Must be kept in sync with the headings used in addSolutionComponents / render methods.
+        /// </summary>
+        private static string GetComponentSectionHeading(string componentType)
+        {
+            return componentType switch
+            {
+                "Role" => "Security Roles",
+                "Entity" => "Tables",
+                "Option Set" => "Option Sets",
+                _ => componentType
+            };
         }
 
         private void AddPublisherInfo()
@@ -150,7 +172,7 @@ namespace PowerDocu.SolutionDocumenter
         private void addEnvironmentVariables()
         {
             solutionDoc.Root.Add(new MdHeading("Environment Variables", 3));
-            foreach (EnvironmentVariableEntity environmentVariable in content.solution.EnvironmentVariables)
+            foreach (EnvironmentVariableEntity environmentVariable in content.solution.EnvironmentVariables.OrderBy(e => e.DisplayName))
             {
                 solutionDoc.Root.Add(new MdHeading(environmentVariable.DisplayName, 4));
                 List<MdTableRow> environmentVariableTableRows = new List<MdTableRow>();

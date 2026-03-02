@@ -47,6 +47,10 @@ namespace PowerDocu.SolutionDocumenter
             ApplyStyleToParagraph("Heading1", para);
             table = CreateTable();
             table.Append(CreateHeaderRow(new Text("Component Type"), new Text("Number of Components")));
+            if (content.solution.EnvironmentVariables.Count > 0)
+            {
+                table.Append(CreateRow(new Text("Environment Variables"), new Text(content.solution.EnvironmentVariables.Count.ToString())));
+            }
             foreach (string componentType in content.solution.GetComponentTypes())
             {
                 List<SolutionComponent> components = content.solution.Components.Where(c => c.Type == componentType).OrderBy(c => c.reqdepDisplayName).ToList();
@@ -158,7 +162,7 @@ namespace PowerDocu.SolutionDocumenter
             ApplyStyleToParagraph("Heading2", para);
             para = body.AppendChild(new Paragraph());
             run = para.AppendChild(new Run());
-            foreach (EnvironmentVariableEntity environmentVariable in content.solution.EnvironmentVariables)
+            foreach (EnvironmentVariableEntity environmentVariable in content.solution.EnvironmentVariables.OrderBy(e => e.DisplayName))
             {
                 para = body.AppendChild(new Paragraph());
                 run = para.AppendChild(new Run());
