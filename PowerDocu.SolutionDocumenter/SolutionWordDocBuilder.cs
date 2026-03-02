@@ -391,34 +391,48 @@ namespace PowerDocu.SolutionDocumenter
                             para = body.AppendChild(new Paragraph());
                             run = para.AppendChild(new Run(new Text("Form: " + formEntity.GetFormName())));
                             ApplyStyleToParagraph("Heading5", para);
-                            foreach (FormTab tab in tabs)
+
+                            // SVG wireframe mockup
+                            TableEntity currentTableEntity = content.solution.Customizations.getEntities().Find(e => e.GetForms().Contains(formEntity));
+                            Dictionary<string, string> columnDisplayNames = currentTableEntity?.GetColumns()?.ToDictionary(c => c.getLogicalName(), c => c.getDisplayName(), StringComparer.OrdinalIgnoreCase);
+                            string svgContent = FormSvgBuilder.GenerateFormSvgContent(formEntity, currentTableEntity?.getLocalizedName() ?? "", columnDisplayNames);
+                            if (!String.IsNullOrEmpty(svgContent))
                             {
-                                para = body.AppendChild(new Paragraph());
-                                Run boldRun = para.AppendChild(new Run());
-                                boldRun.AppendChild(new RunProperties(new Bold()));
-                                boldRun.AppendChild(new Text("Tab: " + tab.GetName() + (tab.IsVisible() ? "" : " (hidden)")));
-                                foreach (FormSection section in tab.GetSections())
-                                {
-                                    List<FormControl> controls = section.GetControls();
-                                    if (controls.Count > 0)
-                                    {
-                                        para = body.AppendChild(new Paragraph());
-                                        run = para.AppendChild(new Run(new Text("Section: " + section.GetName() + (section.IsVisible() ? "" : " (hidden)"))));
-                                        table = CreateTable();
-                                        table.Append(CreateHeaderRow(new Text("#"), new Text("Control"), new Text("Field")));
-                                        int controlIndex = 1;
-                                        foreach (FormControl control in controls)
-                                        {
-                                            string fieldName = !String.IsNullOrEmpty(control.GetDataFieldName()) ? control.GetDataFieldName() : control.GetId();
-                                            table.Append(CreateRow(new Text(controlIndex.ToString()), new Text(control.GetId()), new Text(fieldName)));
-                                            controlIndex++;
-                                        }
-                                        body.Append(table);
-                                        para = body.AppendChild(new Paragraph());
-                                        run = para.AppendChild(new Run());
-                                    }
-                                }
+                                var (svgWidth, svgHeight) = FormSvgBuilder.MeasureFormSvg(formEntity);
+                                body.AppendChild(new Paragraph(new Run(
+                                    InsertSvgImage(mainPart, svgContent, svgWidth, svgHeight)
+                                )));
                             }
+
+                            // Rendering Forms visually now, keeping this code for reference
+                            // foreach (FormTab tab in tabs)
+                            // {
+                            //     para = body.AppendChild(new Paragraph());
+                            //     Run boldRun = para.AppendChild(new Run());
+                            //     boldRun.AppendChild(new RunProperties(new Bold()));
+                            //     boldRun.AppendChild(new Text("Tab: " + tab.GetName() + (tab.IsVisible() ? "" : " (hidden)")));
+                            //     foreach (FormSection section in tab.GetSections())
+                            //     {
+                            //         List<FormControl> controls = section.GetControls();
+                            //         if (controls.Count > 0)
+                            //         {
+                            //             para = body.AppendChild(new Paragraph());
+                            //             run = para.AppendChild(new Run(new Text("Section: " + section.GetName() + (section.IsVisible() ? "" : " (hidden)"))));
+                            //             table = CreateTable();
+                            //             table.Append(CreateHeaderRow(new Text("#"), new Text("Control"), new Text("Field")));
+                            //             int controlIndex = 1;
+                            //             foreach (FormControl control in controls)
+                            //             {
+                            //                 string fieldName = !String.IsNullOrEmpty(control.GetDataFieldName()) ? control.GetDataFieldName() : control.GetId();
+                            //                 table.Append(CreateRow(new Text(controlIndex.ToString()), new Text(control.GetId()), new Text(fieldName)));
+                            //                 controlIndex++;
+                            //             }
+                            //             body.Append(table);
+                            //             para = body.AppendChild(new Paragraph());
+                            //             run = para.AppendChild(new Run());
+                            //         }
+                            //     }
+                            // }
                         }
                     }
                 }

@@ -402,33 +402,45 @@ namespace PowerDocu.SolutionDocumenter
                     }
                     solutionDoc.Root.Add(new MdTable(new MdTableRow("Name", "Type", "Default", "State", "Customizable"), formRows));
 
+                    // Generate SVG mockup files for forms
+                    Dictionary<string, string> columnDisplayNames = tableEntity.GetColumns().ToDictionary(c => c.getLogicalName(), c => c.getDisplayName(), StringComparer.OrdinalIgnoreCase);
+                    Dictionary<string, string> formSvgFiles = FormSvgBuilder.GenerateFormSvgs(tableEntity, content.folderPath, columnDisplayNames);
+
                     foreach (FormEntity formEntity in tableEntity.GetForms())
                     {
                         List<FormTab> tabs = formEntity.GetTabs();
                         if (tabs.Count > 0)
                         {
                             solutionDoc.Root.Add(new MdHeading("Form: " + formEntity.GetFormName(), 6));
-                            foreach (FormTab tab in tabs)
+
+                            // SVG wireframe mockup image
+                            if (formSvgFiles.TryGetValue(formEntity.GetFormName(), out string svgFile))
                             {
-                                solutionDoc.Root.Add(new MdParagraph(new MdStrongEmphasisSpan("Tab: " + tab.GetName() + (tab.IsVisible() ? "" : " (hidden)"))));
-                                foreach (FormSection section in tab.GetSections())
-                                {
-                                    List<FormControl> controls = section.GetControls();
-                                    if (controls.Count > 0)
-                                    {
-                                        solutionDoc.Root.Add(new MdParagraph(new MdTextSpan("Section: " + section.GetName() + (section.IsVisible() ? "" : " (hidden)"))));
-                                        List<MdTableRow> controlRows = new List<MdTableRow>();
-                                        int controlIndex = 1;
-                                        foreach (FormControl control in controls)
-                                        {
-                                            string fieldName = !String.IsNullOrEmpty(control.GetDataFieldName()) ? control.GetDataFieldName() : control.GetId();
-                                            controlRows.Add(new MdTableRow(controlIndex.ToString(), control.GetId(), fieldName));
-                                            controlIndex++;
-                                        }
-                                        solutionDoc.Root.Add(new MdTable(new MdTableRow("#", "Control", "Field"), controlRows));
-                                    }
-                                }
+                                solutionDoc.Root.Add(new MdParagraph(new MdImageSpan("Form layout: " + formEntity.GetFormName(), svgFile)));
                             }
+
+                            // Rendering Forms visually now, keeping this code for reference
+                            // foreach (FormTab tab in tabs)
+                            // {
+                            //     solutionDoc.Root.Add(new MdParagraph(new MdStrongEmphasisSpan("Tab: " + tab.GetName() + (tab.IsVisible() ? "" : " (hidden)"))));
+                            //     foreach (FormSection section in tab.GetSections())
+                            //     {
+                            //         List<FormControl> controls = section.GetControls();
+                            //         if (controls.Count > 0)
+                            //         {
+                            //             solutionDoc.Root.Add(new MdParagraph(new MdTextSpan("Section: " + section.GetName() + (section.IsVisible() ? "" : " (hidden)"))));
+                            //             List<MdTableRow> controlRows = new List<MdTableRow>();
+                            //             int controlIndex = 1;
+                            //             foreach (FormControl control in controls)
+                            //             {
+                            //                 string fieldName = !String.IsNullOrEmpty(control.GetDataFieldName()) ? control.GetDataFieldName() : control.GetId();
+                            //                 controlRows.Add(new MdTableRow(controlIndex.ToString(), control.GetId(), fieldName));
+                            //                 controlIndex++;
+                            //             }
+                            //             solutionDoc.Root.Add(new MdTable(new MdTableRow("#", "Control", "Field"), controlRows));
+                            //         }
+                            //     }
+                            // }
                         }
                     }
                 }

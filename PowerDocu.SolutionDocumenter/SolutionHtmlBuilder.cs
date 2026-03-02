@@ -459,33 +459,47 @@ namespace PowerDocu.SolutionDocumenter
                     }
                     body.AppendLine(TableEnd());
 
+                    // Generate SVG mockup files for forms
+                    Dictionary<string, string> columnDisplayNames = tableEntity.GetColumns().ToDictionary(c => c.getLogicalName(), c => c.getDisplayName(), StringComparer.OrdinalIgnoreCase);
+                    Dictionary<string, string> formSvgFiles = FormSvgBuilder.GenerateFormSvgs(tableEntity, content.folderPath, columnDisplayNames);
+
                     foreach (FormEntity formEntity in tableEntity.GetForms())
                     {
                         List<FormTab> tabs = formEntity.GetTabs();
                         if (tabs.Count > 0)
                         {
                             body.AppendLine(Heading(6, "Form: " + formEntity.GetFormName()));
-                            foreach (FormTab tab in tabs)
+
+                            // SVG wireframe mockup as external file reference
+                            if (formSvgFiles.TryGetValue(formEntity.GetFormName(), out string svgFile))
                             {
-                                body.AppendLine(ParagraphRaw("<strong>Tab:</strong> " + Encode(tab.GetName()) + (tab.IsVisible() ? "" : " (hidden)")));
-                                foreach (FormSection section in tab.GetSections())
-                                {
-                                    List<FormControl> controls = section.GetControls();
-                                    if (controls.Count > 0)
-                                    {
-                                        body.AppendLine(Paragraph("Section: " + Encode(section.GetName()) + (section.IsVisible() ? "" : " (hidden)")));
-                                        body.Append(TableStart("#", "Control", "Field"));
-                                        int controlIndex = 1;
-                                        foreach (FormControl control in controls)
-                                        {
-                                            string fieldName = !String.IsNullOrEmpty(control.GetDataFieldName()) ? control.GetDataFieldName() : control.GetId();
-                                            body.Append(TableRow(controlIndex.ToString(), control.GetId(), fieldName));
-                                            controlIndex++;
-                                        }
-                                        body.AppendLine(TableEnd());
-                                    }
-                                }
+                                body.AppendLine("<div class=\"form-svg-mockup\" style=\"margin: 12px 0; overflow-x: auto;\">");
+                                body.AppendLine($"<img src=\"{Encode(svgFile)}\" alt=\"{Encode("Form layout: " + formEntity.GetFormName())}\" style=\"max-width: 100%;\" />");
+                                body.AppendLine("</div>");
                             }
+
+                            // Rendering Forms visually now, keeping this code for reference
+                            // foreach (FormTab tab in tabs)
+                            // {
+                            //     body.AppendLine(ParagraphRaw("<strong>Tab:</strong> " + Encode(tab.GetName()) + (tab.IsVisible() ? "" : " (hidden)")));
+                            //     foreach (FormSection section in tab.GetSections())
+                            //     {
+                            //         List<FormControl> controls = section.GetControls();
+                            //         if (controls.Count > 0)
+                            //         {
+                            //             body.AppendLine(Paragraph("Section: " + Encode(section.GetName()) + (section.IsVisible() ? "" : " (hidden)")));
+                            //             body.Append(TableStart("#", "Control", "Field"));
+                            //             int controlIndex = 1;
+                            //             foreach (FormControl control in controls)
+                            //             {
+                            //                 string fieldName = !String.IsNullOrEmpty(control.GetDataFieldName()) ? control.GetDataFieldName() : control.GetId();
+                            //                 body.Append(TableRow(controlIndex.ToString(), control.GetId(), fieldName));
+                            //                 controlIndex++;
+                            //             }
+                            //             body.AppendLine(TableEnd());
+                            //         }
+                            //     }
+                            // }
                         }
                     }
                 }
