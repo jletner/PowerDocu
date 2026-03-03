@@ -433,10 +433,12 @@ namespace PowerDocu.SolutionDocumenter
                         List<FormTab> tabs = formEntity.GetTabs();
                         if (tabs.Count > 0)
                         {
-                            solutionDoc.Root.Add(new MdHeading("Form: " + formEntity.GetFormName(), 6));
+                            string formTypeLabel = formEntity.GetFormTypeDisplayName();
+                            solutionDoc.Root.Add(new MdHeading("Form (" + formTypeLabel + "): " + formEntity.GetFormName(), 6));
 
                             // SVG wireframe mockup image
-                            if (formSvgFiles.TryGetValue(formEntity.GetFormName(), out string svgFile))
+                            string formKey = formEntity.GetFormName() + "|" + formTypeLabel;
+                            if (formSvgFiles.TryGetValue(formKey, out string svgFile))
                             {
                                 solutionDoc.Root.Add(new MdParagraph(new MdImageSpan("Form layout: " + formEntity.GetFormName(), svgFile)));
                             }
@@ -497,6 +499,25 @@ namespace PowerDocu.SolutionDocumenter
                                 colRows.Add(new MdTableRow(vc.Order.ToString(), displayName, vc.GetWidth()));
                             }
                             solutionDoc.Root.Add(new MdTable(new MdTableRow("#", "Column", "Width"), colRows));
+
+                            // View controls table (sort orders, filters)
+                            List<ViewSortOrder> sortOrders = viewEntity.GetSortOrders();
+                            ViewFilter filter = viewEntity.GetFilter();
+                            string filterText = filter?.ToDisplayString(columnDisplayNames) ?? "";
+                            if (sortOrders.Count > 0 || !string.IsNullOrEmpty(filterText))
+                            {
+                                List<MdTableRow> controlRows = new List<MdTableRow>();
+                                if (sortOrders.Count > 0)
+                                {
+                                    string sortText = string.Join(", ", sortOrders.Select(s => s.ToDisplayString(columnDisplayNames)));
+                                    controlRows.Add(new MdTableRow("Sort by", sortText));
+                                }
+                                if (!string.IsNullOrEmpty(filterText))
+                                {
+                                    controlRows.Add(new MdTableRow("Filter", filterText));
+                                }
+                                solutionDoc.Root.Add(new MdTable(new MdTableRow("View Controls", "Details"), controlRows));
+                            }
                         }
                     }
                 }

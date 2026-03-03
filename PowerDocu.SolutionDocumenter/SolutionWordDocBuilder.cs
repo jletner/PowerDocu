@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using PowerDocu.Common;
@@ -392,8 +393,9 @@ namespace PowerDocu.SolutionDocumenter
                         List<FormTab> tabs = formEntity.GetTabs();
                         if (tabs.Count > 0)
                         {
+                            string formTypeLabel = formEntity.GetFormTypeDisplayName();
                             para = body.AppendChild(new Paragraph());
-                            run = para.AppendChild(new Run(new Text("Form: " + formEntity.GetFormName())));
+                            run = para.AppendChild(new Run(new Text("Form (" + formTypeLabel + "): " + formEntity.GetFormName())));
                             ApplyStyleToParagraph("Heading5", para);
 
                             // SVG wireframe mockup
@@ -481,6 +483,27 @@ namespace PowerDocu.SolutionDocumenter
                                 table.Append(CreateRow(new Text(vc.Order.ToString()), new Text(displayName), new Text(vc.GetWidth())));
                             }
                             body.Append(table);
+
+                            // View controls table (sort orders, filters)
+                            List<ViewSortOrder> sortOrders = viewEntity.GetSortOrders();
+                            ViewFilter filter = viewEntity.GetFilter();
+                            string filterText = filter?.ToDisplayString(columnDisplayNames) ?? "";
+                            if (sortOrders.Count > 0 || !string.IsNullOrEmpty(filterText))
+                            {
+                                table = CreateTable();
+                                table.Append(CreateHeaderRow(new Text("View Controls"), new Text("Details")));
+                                if (sortOrders.Count > 0)
+                                {
+                                    string sortText = string.Join(", ", sortOrders.Select(s => s.ToDisplayString(columnDisplayNames)));
+                                    table.Append(CreateRow(new Text("Sort by"), new Text(sortText)));
+                                }
+                                if (!string.IsNullOrEmpty(filterText))
+                                {
+                                    table.Append(CreateRow(new Text("Filter"), new Text(filterText)));
+                                }
+                                body.Append(table);
+                            }
+
                             para = body.AppendChild(new Paragraph());
                             run = para.AppendChild(new Run());
                         }

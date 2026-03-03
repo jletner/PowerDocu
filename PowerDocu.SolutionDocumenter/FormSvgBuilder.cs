@@ -47,6 +47,9 @@ namespace PowerDocu.SolutionDocumenter
         private const string HiddenOverlayColor = "#f3f2f1";
         private const string HiddenTextColor = "#a19f9d";
         private const string FormHeaderColor = "#0078d4";
+        private const string DisabledBgColor = "#f3f2f1";
+        private const string DisabledBorderColor = "#c8c6c4";
+        private const string HiddenControlBgColor = "#faf9f8";
 
         /// <summary>
         /// Generates SVG files for all forms in the given table entity.
@@ -64,12 +67,15 @@ namespace PowerDocu.SolutionDocumenter
                 List<FormTab> tabs = form.GetTabs();
                 if (tabs.Count == 0) continue;
 
+                string formTypeLabel = form.GetFormTypeDisplayName();
                 string safeName = CharsetHelper.GetSafeName(
-                    tableEntity.getName() + "-form-" + form.GetFormName());
+                    tableEntity.getName() + "-form-" + formTypeLabel + "-" + form.GetFormName())
+                    .Replace(" ", "-");
                 string filename = safeName + ".svg";
                 string svg = BuildFormSvg(form, tableEntity.getLocalizedName(), columnDisplayNames);
                 File.WriteAllText(Path.Combine(dataversePath, filename), svg, Encoding.UTF8);
-                result[form.GetFormName()] = "Dataverse/" + filename;
+                string formKey = form.GetFormName() + "|" + formTypeLabel;
+                result[formKey] = "Dataverse/" + filename;
             }
 
             return result;
@@ -238,21 +244,43 @@ namespace PowerDocu.SolutionDocumenter
         {
             string label = ResolveControlLabel(control, columnDisplayNames);
             bool hasLabel = !control.IsLabelHidden();
+            bool isDisabled = control.IsDisabled();
+            bool isHidden = !control.IsVisible();
+
+            // Choose colors based on state
+            string bgColor = isDisabled ? DisabledBgColor : ControlBgColor;
+            string borderColor = isDisabled ? DisabledBorderColor : ControlBorderColor;
+
+            if (isHidden)
+            {
+                bgColor = HiddenControlBgColor;
+                borderColor = DisabledBorderColor;
+            }
+
+            // Suffix for hidden controls
+            string labelSuffix = isHidden ? " (hidden)" : "";
 
             if (hasLabel)
             {
                 // Label above control input
-                sb.AppendLine($"<text x=\"{x + 4}\" y=\"{y + 10}\" class=\"form-label\">{Escape(label)}</text>");
+                string labelClass = isHidden ? "hidden-text" : "form-label";
+                sb.AppendLine($"<text x=\"{x + 4}\" y=\"{y + 10}\" class=\"{labelClass}\">{Escape(label + labelSuffix)}</text>");
                 // Control input box
                 int inputY = y + 12;
                 int inputHeight = 14;
-                sb.AppendLine($"<rect x=\"{x + 2}\" y=\"{inputY}\" width=\"{width - 4}\" height=\"{inputHeight}\" rx=\"2\" ry=\"2\" fill=\"{ControlBgColor}\" stroke=\"{ControlBorderColor}\" stroke-width=\"0.5\" />");
+                sb.AppendLine($"<rect x=\"{x + 2}\" y=\"{inputY}\" width=\"{width - 4}\" height=\"{inputHeight}\" rx=\"2\" ry=\"2\" fill=\"{bgColor}\" stroke=\"{borderColor}\" stroke-width=\"0.5\" />");
+                if (isDisabled && !isHidden)
+                {
+                    // Show lock icon indicator for disabled fields
+                    sb.AppendLine($"<text x=\"{x + width - 16}\" y=\"{inputY + 11}\" style=\"font-size: 9px; fill: {HiddenTextColor};\">\uD83D\uDD12</text>");
+                }
             }
             else
             {
                 // Full-height control without label
-                sb.AppendLine($"<rect x=\"{x + 2}\" y=\"{y + 2}\" width=\"{width - 4}\" height=\"{ControlRowHeight - 6}\" rx=\"2\" ry=\"2\" fill=\"{ControlBgColor}\" stroke=\"{ControlBorderColor}\" stroke-width=\"0.5\" />");
-                sb.AppendLine($"<text x=\"{x + 8}\" y=\"{y + 16}\" class=\"form-control-text\">{Escape(label)}</text>");
+                sb.AppendLine($"<rect x=\"{x + 2}\" y=\"{y + 2}\" width=\"{width - 4}\" height=\"{ControlRowHeight - 6}\" rx=\"2\" ry=\"2\" fill=\"{bgColor}\" stroke=\"{borderColor}\" stroke-width=\"0.5\" />");
+                string textClass = isHidden ? "hidden-text" : "form-control-text";
+                sb.AppendLine($"<text x=\"{x + 8}\" y=\"{y + 16}\" class=\"{textClass}\">{Escape(label + labelSuffix)}</text>");
             }
         }
 
