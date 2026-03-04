@@ -179,7 +179,6 @@ namespace PowerDocu.AgentDocumenter
             mainDocument.Root.Add(new MdHeading(content.Instructions, 3));
             AddParagraphsWithLinebreaks(mainDocument, content.agent.GetInstructions());
             mainDocument.Root.Add(new MdHeading(content.Knowledge, 3));
-            mainDocument.Root.Add(new MdParagraph(new MdTextSpan("TODO")));
             foreach (BotComponent knowledgeSource in content.agent.GetKnowledge())
             {
                 mainDocument.Root.Add(new MdParagraph(new MdTextSpan(knowledgeSource.Name)));
@@ -194,7 +193,7 @@ namespace PowerDocu.AgentDocumenter
             List<MdListItem> topicsList = new List<MdListItem>();
             foreach (BotComponent topic in content.agent.GetTopics().OrderBy(o => o.Name))
             {
-                topicsList.Add(new MdListItem(new MdLinkSpan(topic.getTopicFileName(), "link")));
+                topicsList.Add(new MdListItem(new MdLinkSpan(topic.Name, "Topics/" + ("topic " + topic.getTopicFileName() + " " + content.filename + ".md").Replace(" ", "-"))));
             }
             mainDocument.Root.Add(new MdBulletList(topicsList));
             mainDocument.Root.Add(new MdHeading(content.SuggestedPrompts, 3));
@@ -257,60 +256,12 @@ namespace PowerDocu.AgentDocumenter
     */
         private void addAgentKnowledgeInfo()
         {
-            /*
-            toolsDocument.Root.Add(new MdHeading(content.appVariablesInfo.header, 2));
-            toolsDocument.Root.Add(new MdParagraph(new MdTextSpan(content.appVariablesInfo.infoText)));
-            toolsDocument.Root.Add(new MdHeading(content.appVariablesInfo.headerGlobalVariables, 3));
-            foreach (string var in content.appVariablesInfo.globalVariables)
+            knowledgeDocument.Root.Add(new MdHeading(content.Knowledge, 2));
+            knowledgeDocument.Root.Add(new MdParagraph(new MdTextSpan("Knowledge sources for this agent.")));
+            foreach (BotComponent knowledgeSource in content.agent.GetKnowledge())
             {
-                toolsDocument.Root.Add(new MdHeading(var, 4));
-                content.appVariablesInfo.variableCollectionControlReferences.TryGetValue(var, out List<ControlPropertyReference> references);
-                if (references != null)
-                {
-                    toolsDocument.Root.Add(new MdParagraph(new MdTextSpan("Variable used in:")));
-                    List<MdTableRow> tableRows = new List<MdTableRow>();
-                    foreach (ControlPropertyReference reference in references.OrderBy(o => o.Control.Name).ThenBy(o => o.RuleProperty))
-                    {
-                        //link to the screen instead of the control directly for the moment, as the directly generated anchor link (#" + control.Name.ToLower()) doesn't work the same way in DevOps and GitHub
-                        tableRows.Add(new MdTableRow(new MdLinkSpan(reference.Control.Name + " (" + reference.Control.Screen()?.Name + ")",
-                                                            ("screen " + CharsetHelper.GetSafeName(reference.Control.Screen()?.Name) + " " + content.filename + ".md").Replace(" ", "-")),
-                                                    reference.RuleProperty));
-                    }
-                    toolsDocument.Root.Add(new MdTable(new MdTableRow("Control", "Property"), tableRows));
-                }
+                knowledgeDocument.Root.Add(new MdHeading(knowledgeSource.Name, 3));
             }
-            toolsDocument.Root.Add(new MdHeading(content.appVariablesInfo.headerContextVariables, 3));
-            foreach (string var in content.appVariablesInfo.contextVariables)
-            {
-                toolsDocument.Root.Add(new MdHeading(var, 4));
-                content.appVariablesInfo.variableCollectionControlReferences.TryGetValue(var, out List<ControlPropertyReference> references);
-                if (references != null)
-                {
-                    toolsDocument.Root.Add(new MdParagraph(new MdTextSpan("Variable used in:")));
-                    List<MdTableRow> tableRows = new List<MdTableRow>();
-                    foreach (ControlPropertyReference reference in references.OrderBy(o => o.Control.Name).ThenBy(o => o.RuleProperty))
-                    {
-                        tableRows.Add(new MdTableRow(reference.Control.Name + " (" + reference.Control.Screen()?.Name + ")", reference.RuleProperty));
-                    }
-                    toolsDocument.Root.Add(new MdTable(new MdTableRow("Control", "Property"), tableRows));
-                }
-            }
-            toolsDocument.Root.Add(new MdHeading(content.appVariablesInfo.headerCollections, 3));
-            foreach (string var in content.appVariablesInfo.collections)
-            {
-                toolsDocument.Root.Add(new MdHeading(var, 4));
-                content.appVariablesInfo.variableCollectionControlReferences.TryGetValue(var, out List<ControlPropertyReference> references);
-                if (references != null)
-                {
-                    toolsDocument.Root.Add(new MdParagraph(new MdTextSpan("Variable used in:")));
-                    List<MdTableRow> tableRows = new List<MdTableRow>();
-                    foreach (ControlPropertyReference reference in references.OrderBy(o => o.Control.Name).ThenBy(o => o.RuleProperty))
-                    {
-                        tableRows.Add(new MdTableRow(reference.Control.Name + " (" + reference.Control.Screen()?.Name + ")", reference.RuleProperty));
-                    }
-                    toolsDocument.Root.Add(new MdTable(new MdTableRow("Control", "Property"), tableRows));
-                }
-            }*/
         }
 
         private void addAgentTopics()
@@ -325,7 +276,7 @@ namespace PowerDocu.AgentDocumenter
                     new MdLinkSpan(topic.Name, "Topics/" + ("topic " + topic.getTopicFileName() + " " + content.filename + ".md").Replace(" ", "-")),
                     topicType,
                     triggerType,
-                    topic.GetTopicKind() == "KnowledgeSourceConfiguration" ? "Knowledge" : triggerType));
+                    topic.GetTopicKind() == "KnowledgeSourceConfiguration" ? "Knowledge" : topic.GetTopicKind()));
 
                 // Fill per-topic document
                 topicsDocuments.TryGetValue(topic.getTopicFileName(), out MdDocument topicDoc);
@@ -439,8 +390,6 @@ namespace PowerDocu.AgentDocumenter
 
         private void addAgentChannels()
         {
-            channelsDocument.Root.Add(getNavigationLinks());
-            channelsDocument.Root.Add(new MdHeading($"Agent - {content.filename}", 1));
             channelsDocument.Root.Add(new MdHeading("Channels", 2));
             channelsDocument.Root.Add(new MdParagraph(new MdTextSpan("Channels are not exported with the solution and are not documented automatically.")));
         }
@@ -574,93 +523,14 @@ namespace PowerDocu.AgentDocumenter
         */
         private void addAgentTools()
         {
-            /*
-            agentsDocument.Root.Add(new MdHeading(content.appDataSources.header, 2));
-            agentsDocument.Root.Add(new MdParagraph(new MdTextSpan(content.appDataSources.infoText)));
-
-            foreach (DataSource datasource in content.appDataSources.dataSources)
-            {
-                if (!datasource.isSampleDataSource() || documentSampleData)
-                {
-                    agentsDocument.Root.Add(new MdHeading(new MdLinkSpan(datasource.Name, ("datasource " + CharsetHelper.GetSafeName(datasource.Name) + " " + content.filename + ".md").Replace(" ", "-")), 3));
-                    datasourcesDocuments.TryGetValue(datasource.Name, out MdDocument dataSourceDocument);
-                    dataSourceDocument.Root.Add(new MdHeading(datasource.Name, 3));
-                    List<MdTableRow> tableRows = new List<MdTableRow>
-                {
-                    new MdTableRow("Name", datasource.Name),
-                    new MdTableRow("Type", datasource.Type)
-                };
-                    dataSourceDocument.Root.Add(new MdTable(new MdTableRow("Property", "Value"), tableRows));
-                    tableRows = new List<MdTableRow>();
-                    dataSourceDocument.Root.Add(new MdHeading("DataSource Properties", 4));
-                    foreach (Expression expression in datasource.Properties.OrderBy(o => o.expressionOperator))
-                    {
-                        if (expression.expressionOperator != "TableDefinition")
-                        {
-                            if (expression.expressionOperands.Count > 1)
-                            {
-                                tableRows.Add(new MdTableRow(expression.expressionOperator, new MdRawMarkdownSpan(AddExpressionDetails(new List<Expression> { expression }))));
-                            }
-                            else
-                            {
-                                tableRows.Add(new MdTableRow(expression.expressionOperator, (expression.expressionOperands.Count > 0) ? expression.expressionOperands[0].ToString() : ""));
-                            }
-                        }
-                        else
-                        {
-                            //todo document the table definition ? probably make it configurable
-                            // removed it for the moment as it resulted in very large files with likely little value
-                        }
-                    }
-                    dataSourceDocument.Root.Add(new MdTable(new MdTableRow("Property", "Value"), tableRows));
-                }
-            }*/
+            toolsDocument.Root.Add(new MdHeading(content.Tools, 2));
+            toolsDocument.Root.Add(new MdParagraph(new MdTextSpan("Tools available for this agent.")));
         }
 
         private void addAgentAgentsInfo()
         {
-            /*
-            Directory.CreateDirectory(content.folderPath + "resources");
-            topicsDocument.Root.Add(new MdHeading(content.appResources.header, 2));
-            topicsDocument.Root.Add(new MdParagraph(new MdTextSpan(content.appResources.infoText)));
-            foreach (Resource resource in content.appResources.resources)
-            {
-                if (!resource.isSampleResource())
-                {
-                    topicsDocument.Root.Add(new MdHeading(resource.Name, 3));
-                    List<MdTableRow> tableRows = new List<MdTableRow>
-                {
-                    new MdTableRow("Name", resource.Name),
-                    new MdTableRow("Content", resource.Content),
-                    new MdTableRow("Resource Kind", resource.ResourceKind)
-                };
-                    if (resource.ResourceKind == "LocalFile")
-                    {
-                        if (content.ResourceStreams.TryGetValue(resource.Name, out MemoryStream resourceStream))
-                        {
-                            Expression fileName = resource.Properties.First(o => o.expressionOperator == "FileName");
-                            using Stream streamToWriteTo = File.Open(content.folderPath + @"resources\" + fileName.expressionOperands[0].ToString(), FileMode.Create);
-
-                            resourceStream.Position = 0;
-                            resourceStream.CopyTo(streamToWriteTo);
-                            int imageWidth = 400;
-                            if (!fileName.expressionOperands[0].ToString().EndsWith("svg", StringComparison.OrdinalIgnoreCase))
-                            {
-                                using var image = Image.FromStream(resourceStream, false, false);
-                                imageWidth = (image.Width > 400) ? 400 : image.Width;
-                            }
-                            //todo consider showing a resized copy of the image if it is wider than 400px
-                            tableRows.Add(new MdTableRow("Resource Preview", new MdImageSpan(resource.Name, "resources/" + fileName.expressionOperands[0].ToString())));
-                        }
-                    }
-                    foreach (Expression expression in resource.Properties.OrderBy(o => o.expressionOperator))
-                    {
-                        tableRows.Add(new MdTableRow(expression.expressionOperator, expression.expressionOperands?[0].ToString()));
-                    }
-
-                    topicsDocument.Root.Add(new MdTable(new MdTableRow("Property", "Value"), tableRows));
-                }
-            }*/
+            agentsDocument.Root.Add(new MdHeading(content.Agents, 2));
+            agentsDocument.Root.Add(new MdParagraph(new MdTextSpan("Sub-agents for this agent.")));
         }
 
         private void AddParagraphsWithLinebreaks(MdDocument document, string text)

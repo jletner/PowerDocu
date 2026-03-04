@@ -36,7 +36,7 @@ namespace PowerDocu.AgentDocumenter
         {
             Paragraph para = body.AppendChild(new Paragraph());
             Run run = para.AppendChild(new Run());
-            run.AppendChild(new Text("Agent - " + content.agent.Name));
+            run.AppendChild(new Text("Agent - " + content.filename));
             ApplyStyleToParagraph("Heading1", para);
 
             Table table = CreateTable();
@@ -107,6 +107,37 @@ namespace PowerDocu.AgentDocumenter
                 body.AppendChild(new Paragraph(new Run(new Text(knowledgeSource.Name))));
             }
 
+            // Web Search
+            para = body.AppendChild(new Paragraph());
+            run = para.AppendChild(new Run());
+            run.AppendChild(new Text(content.WebSearch));
+            ApplyStyleToParagraph("Heading3", para);
+            body.AppendChild(new Paragraph(new Run(new Text("TODO"))));
+
+            // Triggers
+            para = body.AppendChild(new Paragraph());
+            run = para.AppendChild(new Run());
+            run.AppendChild(new Text(content.Triggers));
+            ApplyStyleToParagraph("Heading3", para);
+            body.AppendChild(new Paragraph(new Run(new Text("TODO"))));
+
+            // Agents
+            para = body.AppendChild(new Paragraph());
+            run = para.AppendChild(new Run());
+            run.AppendChild(new Text(content.Agents));
+            ApplyStyleToParagraph("Heading3", para);
+            body.AppendChild(new Paragraph(new Run(new Text("TODO"))));
+
+            // Topics
+            para = body.AppendChild(new Paragraph());
+            run = para.AppendChild(new Run());
+            run.AppendChild(new Text(content.Topics));
+            ApplyStyleToParagraph("Heading3", para);
+            foreach (BotComponent topic in content.agent.GetTopics().OrderBy(o => o.Name))
+            {
+                body.AppendChild(new Paragraph(new Run(new Text(topic.Name))));
+            }
+
             // Suggested Prompts
             para = body.AppendChild(new Paragraph());
             run = para.AppendChild(new Run());
@@ -132,7 +163,7 @@ namespace PowerDocu.AgentDocumenter
             Paragraph para = body.AppendChild(new Paragraph());
             Run run = para.AppendChild(new Run());
             run.AppendChild(new Text(content.Topics));
-            ApplyStyleToParagraph("Heading2", para);
+            ApplyStyleToParagraph("Heading1", para);
 
             Table table = CreateTable();
             table.Append(CreateHeaderRow(new Text("Name"), new Text("Type"), new Text("Trigger"), new Text("Kind")));
@@ -140,7 +171,7 @@ namespace PowerDocu.AgentDocumenter
             {
                 string topicType = topic.GetComponentTypeDisplayName();
                 string triggerType = topic.GetTriggerTypeForTopic();
-                string topicKind = topic.GetTopicKind() == "KnowledgeSourceConfiguration" ? "Knowledge" : triggerType;
+                string topicKind = topic.GetTopicKind() == "KnowledgeSourceConfiguration" ? "Knowledge" : topic.GetTopicKind();
                 table.Append(CreateRow(new Text(topic.Name), new Text(topicType), new Text(triggerType), new Text(topicKind)));
             }
             body.Append(table);

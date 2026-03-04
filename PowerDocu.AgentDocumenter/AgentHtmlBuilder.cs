@@ -183,7 +183,7 @@ namespace PowerDocu.AgentDocumenter
                 string topicFile = topicFileNames.GetValueOrDefault(topic.Name, "#");
                 string topicType = topic.GetComponentTypeDisplayName();
                 string triggerType = topic.GetTriggerTypeForTopic();
-                string topicKind = topic.GetTopicKind() == "KnowledgeSourceConfiguration" ? "Knowledge" : triggerType;
+                string topicKind = topic.GetTopicKind() == "KnowledgeSourceConfiguration" ? "Knowledge" : topic.GetTopicKind();
                 body.Append(TableRowRaw(Link(topic.Name, "Topics/" + topicFile), Encode(topicType), Encode(triggerType), Encode(topicKind)));
             }
             body.AppendLine(TableEnd());
