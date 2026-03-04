@@ -283,7 +283,6 @@ namespace PowerDocu.GUI
                 Location = new Point(convertToDPISpecific(15), flowActionSortOrderComboBox.Location.Y + flowActionSortOrderComboBox.Height + convertToDPISpecific(10)),
                 Checked = true,
                 AutoSize = true,
-                Enabled = false // Disable Agents option until documentation for Agents is implemented
             };
             docOptionsInnerPanel.Controls.Add(agentsCheckBox);
 

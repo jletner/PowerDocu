@@ -14,574 +14,392 @@ namespace PowerDocu.AgentDocumenter
     class AgentWordDocBuilder : WordDocBuilder
     {
         private readonly AgentDocumentationContent content;
-        private bool DetailedDocumentation = false;
-        private bool documentChangedDefaultsOnly;
-        private bool showDefaults;
-        private bool documentSampleData;
 
         public AgentWordDocBuilder(AgentDocumentationContent contentDocumentation, string template)
         {
             content = contentDocumentation;
             Directory.CreateDirectory(content.folderPath);
-            /*
-            do
-            {
-                string filename = InitializeWordDocument(content.folderPath + content.filename + (DetailedDocumentation ? " detailed" : ""), template);
-                using WordprocessingDocument wordDocument = WordprocessingDocument.Open(filename, true);
-                mainPart = wordDocument.MainDocumentPart;
-                body = mainPart.Document.Body;
-                PrepareDocument(!String.IsNullOrEmpty(template));
-                addAppProperties();
-                addAppVariablesInfo();
-                addAppDataSources();
-                addAppResources();
-                addAppControlsOverview(wordDocument);
-                if (DetailedDocumentation) addDetailedAppControls();
-                DetailedDocumentation = !DetailedDocumentation;
-            } while (DetailedDocumentation);
-            NotificationHelper.SendNotification("Created Word documentation for " + contentDocumentation.Name);
-            */
+            string filename = InitializeWordDocument(content.folderPath + content.filename, template);
+            using WordprocessingDocument wordDocument = WordprocessingDocument.Open(filename, true);
+            mainPart = wordDocument.MainDocumentPart;
+            body = mainPart.Document.Body;
+            PrepareDocument(!String.IsNullOrEmpty(template));
+            addAgentOverview();
+            addAgentChannels();
+            addAgentSettings();
+            addAgentTopicsOverview();
+            addAgentTopicDetails();
+            NotificationHelper.SendNotification("Created Word documentation for " + contentDocumentation.filename);
         }
-/*
-        private void addAppProperties()
+
+        private void addAgentOverview()
         {
             Paragraph para = body.AppendChild(new Paragraph());
             Run run = para.AppendChild(new Run());
-            run.AppendChild(new Text(content.appProperties.header));
+            run.AppendChild(new Text("Agent - " + content.agent.Name));
             ApplyStyleToParagraph("Heading1", para);
-            body.AppendChild(new Paragraph(new Run()));
+
             Table table = CreateTable();
-            table.Append(CreateRow(new Text("App Name"), new Text(content.Name)));
-            //if there is a custom logo we add it to the documentation as well. Icon based logos currently not supported
-            if (!String.IsNullOrEmpty(content.appProperties.appLogo))
+            table.Append(CreateRow(new Text("Agent Name"), new Text(content.agent.Name)));
+            if (!String.IsNullOrEmpty(content.agent.IconBase64))
             {
-                if (content.ResourceStreams.TryGetValue(content.appProperties.appLogo, out MemoryStream resourceStream))
+                try
                 {
-                    Drawing icon;
-                    ImagePart imagePart = mainPart.AddImagePart(ImagePartType.Jpeg);
-                    int imageWidth, imageHeight;
-                    using (var image = Image.FromStream(resourceStream, false, false))
+                    Bitmap agentLogo = ImageHelper.ConvertBase64ToBitmap(content.agent.IconBase64);
+                    string logoPath = content.folderPath + $"agentlogo-{content.filename.Replace(" ", "-")}.png";
+                    agentLogo.Save(logoPath);
+                    ImagePart imagePart = mainPart.AddImagePart(ImagePartType.Png);
+                    using (FileStream stream = new FileStream(logoPath, FileMode.Open))
                     {
-                        imageWidth = image.Width;
-                        imageHeight = image.Height;
+                        imagePart.FeedData(stream);
                     }
-                    resourceStream.Position = 0;
-                    imagePart.FeedData(resourceStream);
-                    int usedWidth = (imageWidth > 400) ? 400 : imageWidth;
-                    icon = InsertImage(mainPart.GetIdOfPart(imagePart), usedWidth, (int)(usedWidth * imageHeight / imageWidth));
-                    TableRow tr = CreateRow(new Text("App Logo"), icon);
-                    if (!String.IsNullOrEmpty(content.appProperties.appBackgroundColour))
-                    {
-                        TableCell tc = (TableCell)tr.LastChild;
-                        var shading = new Shading()
-                        {
-                            Color = "auto",
-                            Fill = ColourHelper.ParseColor(content.appProperties.appBackgroundColour),
-                            Val = ShadingPatternValues.Clear
-                        };
-                        tc.TableCellProperties.Append(shading);
-                    }
-                    table.Append(tr);
+                    Drawing icon = InsertImage(mainPart.GetIdOfPart(imagePart), 64, 64);
+                    table.Append(CreateRow(new Text("Agent Logo"), icon));
+                    agentLogo.Dispose();
                 }
+                catch { }
             }
-            table.Append(CreateRow(new Text(content.appProperties.headerDocumentationGenerated), new Text(DateTime.Now.ToLongDateString() + " " + DateTime.Now.ToShortTimeString())));
-            Table statisticsTable = CreateTable();
-            foreach (KeyValuePair<string, string> stats in content.appProperties.statisticsTable)
-            {
-                statisticsTable.Append(CreateRow(new Text(stats.Key), new Text(stats.Value)));
-            }
-            table.Append(CreateRow(new Text(content.appProperties.headerAppStatistics), statisticsTable));
+            table.Append(CreateRow(new Text(content.headerDocumentationGenerated), new Text(PowerDocuReleaseHelper.GetTimestampWithVersion())));
             body.Append(table);
             body.AppendChild(new Paragraph(new Run(new Break())));
+
+            // Details section
             para = body.AppendChild(new Paragraph());
             run = para.AppendChild(new Run());
-            run.AppendChild(new Text(content.appProperties.headerAppProperties));
-            ApplyStyleToParagraph("Heading1", para);
-            body.AppendChild(new Paragraph(new Run()));
-            table = CreateTable();
-            foreach (Expression property in content.appProperties.appProperties)
+            run.AppendChild(new Text(content.Details));
+            ApplyStyleToParagraph("Heading2", para);
+
+            // Description
+            para = body.AppendChild(new Paragraph());
+            run = para.AppendChild(new Run());
+            run.AppendChild(new Text(content.Description));
+            ApplyStyleToParagraph("Heading3", para);
+            body.AppendChild(new Paragraph(CreateRunWithLinebreaks(content.agent.GetDescription() ?? "")));
+
+            // Orchestration
+            para = body.AppendChild(new Paragraph());
+            run = para.AppendChild(new Run());
+            run.AppendChild(new Text(content.Orchestration));
+            ApplyStyleToParagraph("Heading3", para);
+            body.AppendChild(new Paragraph(new Run(new Text($"{content.OrchestrationText} - {content.agent.GetOrchestration()}"))));
+
+            // Response Model
+            para = body.AppendChild(new Paragraph());
+            run = para.AppendChild(new Run());
+            run.AppendChild(new Text(content.ResponseModel));
+            ApplyStyleToParagraph("Heading3", para);
+            body.AppendChild(new Paragraph(new Run(new Text(content.agent.GetResponseModel()))));
+
+            // Instructions
+            para = body.AppendChild(new Paragraph());
+            run = para.AppendChild(new Run());
+            run.AppendChild(new Text(content.Instructions));
+            ApplyStyleToParagraph("Heading3", para);
+            body.AppendChild(new Paragraph(CreateRunWithLinebreaks(content.agent.GetInstructions() ?? "")));
+
+            // Knowledge
+            para = body.AppendChild(new Paragraph());
+            run = para.AppendChild(new Run());
+            run.AppendChild(new Text(content.Knowledge));
+            ApplyStyleToParagraph("Heading3", para);
+            foreach (BotComponent knowledgeSource in content.agent.GetKnowledge())
             {
-                if (!content.appProperties.propertiesToSkip.Contains(property.expressionOperator) && (content.appProperties.OverviewProperties.Contains(property.expressionOperator) || DetailedDocumentation))
+                body.AppendChild(new Paragraph(new Run(new Text(knowledgeSource.Name))));
+            }
+
+            // Suggested Prompts
+            para = body.AppendChild(new Paragraph());
+            run = para.AppendChild(new Run());
+            run.AppendChild(new Text(content.SuggestedPrompts));
+            ApplyStyleToParagraph("Heading3", para);
+            body.AppendChild(new Paragraph(new Run(new Text(content.SuggestedPromptsText))));
+            Dictionary<string, string> conversationStarters = content.agent.GetSuggestedPrompts();
+            if (conversationStarters.Count > 0)
+            {
+                Table promptsTable = CreateTable();
+                promptsTable.Append(CreateHeaderRow(new Text("Prompt Title"), new Text("Prompt")));
+                foreach (var kvp in conversationStarters.OrderBy(x => x.Key))
                 {
-                    AddExpressionTable(property, table, 1, false, true);
+                    promptsTable.Append(CreateRow(new Text(kvp.Key), new Text(kvp.Value)));
                 }
+                body.Append(promptsTable);
+            }
+            body.AppendChild(new Paragraph(new Run(new Break())));
+        }
+
+        private void addAgentTopicsOverview()
+        {
+            Paragraph para = body.AppendChild(new Paragraph());
+            Run run = para.AppendChild(new Run());
+            run.AppendChild(new Text(content.Topics));
+            ApplyStyleToParagraph("Heading2", para);
+
+            Table table = CreateTable();
+            table.Append(CreateHeaderRow(new Text("Name"), new Text("Type"), new Text("Trigger"), new Text("Kind")));
+            foreach (BotComponent topic in content.agent.GetTopics().OrderBy(o => o.Name).ToList())
+            {
+                string topicType = topic.GetComponentTypeDisplayName();
+                string triggerType = topic.GetTriggerTypeForTopic();
+                string topicKind = topic.GetTopicKind() == "KnowledgeSourceConfiguration" ? "Knowledge" : triggerType;
+                table.Append(CreateRow(new Text(topic.Name), new Text(topicType), new Text(triggerType), new Text(topicKind)));
             }
             body.Append(table);
             body.AppendChild(new Paragraph(new Run(new Break())));
-            addAppControlsTable(content.appControls.controls.First<ControlEntity>(o => o.Type == "appinfo"));
-            if (DetailedDocumentation)
+        }
+
+        private void addAgentTopicDetails()
+        {
+            foreach (BotComponent topic in content.agent.GetTopics().OrderBy(o => o.Name).ToList())
             {
-                para = body.AppendChild(new Paragraph());
-                run = para.AppendChild(new Run());
-                run.AppendChild(new Text(content.appProperties.headerAppPreviewFlags));
-                ApplyStyleToParagraph("Heading1", para);
-                body.AppendChild(new Paragraph(new Run()));
-                table = CreateTable();
-                Expression appPreviewsFlagProperty = content.appProperties.appPreviewsFlagProperty;
-                if (appPreviewsFlagProperty != null)
+                Paragraph para = body.AppendChild(new Paragraph());
+                Run run = para.AppendChild(new Run());
+                run.AppendChild(new Text("Topic: " + topic.Name));
+                ApplyStyleToParagraph("Heading2", para);
+
+                // Metadata table
+                Table table = CreateTable();
+                table.Append(CreateRow(new Text("Name"), new Text(topic.Name)));
+                table.Append(CreateRow(new Text("Type"), new Text(topic.GetComponentTypeDisplayName())));
+                table.Append(CreateRow(new Text("Trigger"), new Text(topic.GetTriggerTypeForTopic())));
+                table.Append(CreateRow(new Text("Topic Kind"), new Text(topic.GetTopicKind())));
+                if (!string.IsNullOrEmpty(topic.Description))
                 {
-                    foreach (Expression flagProp in appPreviewsFlagProperty.expressionOperands)
-                    {
-                        AddExpressionTable(flagProp, table, 1, false, true);
-                    }
+                    table.Append(CreateRow(new Text("Description"), new Text(topic.Description)));
+                }
+                string modelDesc = topic.GetModelDescription();
+                if (!string.IsNullOrEmpty(modelDesc))
+                {
+                    table.Append(CreateRow(new Text("Model Description"), new Text(modelDesc)));
+                }
+                string startBehavior = topic.GetStartBehavior();
+                if (!string.IsNullOrEmpty(startBehavior))
+                {
+                    table.Append(CreateRow(new Text("Start Behavior"), new Text(startBehavior)));
                 }
                 body.Append(table);
                 body.AppendChild(new Paragraph(new Run(new Break())));
-            }
-        }
 
-        private void addAppVariablesInfo()
-        {
-            Paragraph para = body.AppendChild(new Paragraph());
-            Run run = para.AppendChild(new Run());
-            run.AppendChild(new Text(content.appVariablesInfo.header));
-            ApplyStyleToParagraph("Heading1", para);
-            body.AppendChild(new Paragraph(new Run(new Text(content.appVariablesInfo.infoText))));
-            para = body.AppendChild(new Paragraph());
-            run = para.AppendChild(new Run());
-            run.AppendChild(new Text(content.appVariablesInfo.headerGlobalVariables));
-            ApplyStyleToParagraph("Heading2", para);
-            Table table = CreateTable();
-            table.Append(CreateHeaderRow(new Text("Variable Name"), new Text("Used In")));
-            foreach (string var in content.appVariablesInfo.globalVariables)
-            {
-                Table varReferenceTable = CreateTable();
-                content.appVariablesInfo.variableCollectionControlReferences.TryGetValue(var, out List<ControlPropertyReference> references);
-                if (references != null)
-                {
-                    varReferenceTable.Append(CreateHeaderRow(new Text("Control"), new Text("Property")));
-                    foreach (ControlPropertyReference reference in references.OrderBy(o => o.Control.Name).ThenBy(o => o.RuleProperty))
-                    {
-                        varReferenceTable.Append(CreateRow(new Text(reference.Control.Name + " (" + reference.Control.Screen()?.Name + ")"), new Text(reference.RuleProperty)));
-                    }
-                }
-                table.Append(CreateRow(new Text(var), varReferenceTable));
-            }
-            body.Append(table);
-            body.AppendChild(new Paragraph(new Run(new Break())));
-            para = body.AppendChild(new Paragraph());
-            run = para.AppendChild(new Run());
-            run.AppendChild(new Text(content.appVariablesInfo.headerContextVariables));
-            ApplyStyleToParagraph("Heading2", para);
-            table = CreateTable();
-            table.Append(CreateHeaderRow(new Text("Variable Name"), new Text("Used In")));
-            foreach (string var in content.appVariablesInfo.contextVariables)
-            {
-                Table varReferenceTable = CreateTable();
-                content.appVariablesInfo.variableCollectionControlReferences.TryGetValue(var, out List<ControlPropertyReference> references);
-                if (references != null)
-                {
-                    varReferenceTable.Append(CreateHeaderRow(new Text("Control"), new Text("Property")));
-                    foreach (ControlPropertyReference reference in references.OrderBy(o => o.Control.Name).ThenBy(o => o.RuleProperty))
-                    {
-                        varReferenceTable.Append(CreateRow(new Text(reference.Control.Name + " (" + reference.Control.Screen()?.Name + ")"), new Text(reference.RuleProperty)));
-                    }
-                }
-                table.Append(CreateRow(new Text(var), varReferenceTable));
-            }
-            body.Append(table);
-            body.AppendChild(new Paragraph(new Run(new Break())));
-            para = body.AppendChild(new Paragraph());
-            run = para.AppendChild(new Run());
-            run.AppendChild(new Text(content.appVariablesInfo.headerCollections));
-            ApplyStyleToParagraph("Heading2", para);
-            table = CreateTable();
-            table.Append(CreateHeaderRow(new Text("Collection Name"), new Text("Used In")));
-            foreach (string coll in content.appVariablesInfo.collections)
-            {
-                Table collReferenceTable = CreateTable();
-                content.appVariablesInfo.variableCollectionControlReferences.TryGetValue(coll, out List<ControlPropertyReference> references);
-                if (references != null)
-                {
-                    collReferenceTable.Append(CreateHeaderRow(new Text("Control"), new Text("Property")));
-                    foreach (ControlPropertyReference reference in references.OrderBy(o => o.Control.Name).ThenBy(o => o.RuleProperty))
-                    {
-                        collReferenceTable.Append(CreateRow(new Text(reference.Control.Name), new Text(reference.RuleProperty)));
-                    }
-                }
-                table.Append(CreateRow(new Text(coll), collReferenceTable));
-            }
-            body.Append(table);
-            body.AppendChild(new Paragraph(new Run(new Break())));
-        }
-
-        private void addAppControlsOverview(WordprocessingDocument wordDoc)
-        {
-            Paragraph para = body.AppendChild(new Paragraph());
-            Run run = para.AppendChild(new Run());
-            run.AppendChild(new Text(content.appControls.headerOverview));
-            ApplyStyleToParagraph("Heading1", para);
-            body.AppendChild(new Paragraph(new Run(new Text(content.appControls.infoTextScreens))));
-            body.AppendChild(new Paragraph(new Run(new Text(content.appControls.infoTextControls))));
-            foreach (ControlEntity control in content.appControls.controls.Where(o => o.Type != "appinfo"))
-            {
-                para = body.AppendChild(new Paragraph());
-                run = para.AppendChild(new Run());
-                if (DetailedDocumentation)
-                {
-                    run.AppendChild(new Hyperlink(new Text("Screen: " + control.Name))
-                    {
-                        Anchor = CreateMD5Hash(control.Name),
-                        DocLocation = ""
-                    });
-                }
-                else
-                {
-                    run.AppendChild(new Text("Screen: " + control.Name));
-                }
-                ApplyStyleToParagraph("Heading2", para);
-                body.AppendChild(CreateControlTable(control));
-            }
-            body.AppendChild(new Paragraph(new Run(new Break())));
-            para = body.AppendChild(new Paragraph());
-            run = para.AppendChild(new Run());
-            run.AppendChild(new Text(content.appControls.headerScreenNavigation));
-            ApplyStyleToParagraph("Heading2", para);
-            body.AppendChild(new Paragraph(new Run(new Text(content.appControls.infoTextScreenNavigation))));
-            ImagePart imagePart = wordDoc.MainDocumentPart.AddImagePart(ImagePartType.Png);
-            int imageWidth, imageHeight;
-            using (FileStream stream = new FileStream(content.folderPath + content.appControls.imageScreenNavigation + ".png", FileMode.Open))
-            {
-                using (var image = Image.FromStream(stream, false, false))
-                {
-                    imageWidth = image.Width;
-                    imageHeight = image.Height;
-                }
-                stream.Position = 0;
-                imagePart.FeedData(stream);
-            }
-            ImagePart svgPart = wordDoc.MainDocumentPart.AddNewPart<ImagePart>("image/svg+xml", "rId" + (new Random()).Next(100000, 999999));
-            using (FileStream stream = new FileStream(content.folderPath + content.appControls.imageScreenNavigation + ".svg", FileMode.Open))
-            {
-                svgPart.FeedData(stream);
-            }
-            body.AppendChild(new Paragraph(new Run(
-                InsertSvgImage(wordDoc.MainDocumentPart.GetIdOfPart(svgPart), wordDoc.MainDocumentPart.GetIdOfPart(imagePart), imageWidth, imageHeight)
-            )));
-            body.AppendChild(new Paragraph(new Run(new Break())));
-        }
-
-        private Table CreateControlTable(ControlEntity control)
-        {
-            return CreateControlTable(control, BorderValues.Single);
-        }
-
-        private Table CreateControlTable(ControlEntity control, BorderValues borderType)
-        {
-            Table table = CreateTable();
-            table.GetFirstChild<TableProperties>().TableBorders = new TableBorders(
-                    SetDefaultTableBorderStyle(new TopBorder(), borderType),
-                    SetDefaultTableBorderStyle(new LeftBorder(), borderType),
-                    SetDefaultTableBorderStyle(new BottomBorder(), borderType),
-                    SetDefaultTableBorderStyle(new RightBorder(), borderType),
-                    SetDefaultTableBorderStyle(new InsideHorizontalBorder(), BorderValues.None),
-                    SetDefaultTableBorderStyle(new InsideVerticalBorder(), BorderValues.None)
-                );
-            string controlType = control.Type;
-            OpenXmlElement controlElement;
-            if (DetailedDocumentation)
-            {
-                controlElement = new Hyperlink(new Run(new Text(control.Name + " [" + controlType + "]")))
-                {
-                    Anchor = CreateMD5Hash(control.Name),
-                    DocLocation = ""
-                };
-            }
-            else
-            {
-                controlElement = new Text(control.Name + " [" + controlType + "]");
-            }
-            table.Append(CreateRow(InsertSvgImage(mainPart, AppControlIcons.GetControlIcon(controlType), 32, 32), controlElement));
-            foreach (ControlEntity child in control.Children.OrderBy(o => o.Name).ToList())
-            {
-                table.Append(CreateRow(new Text(""), CreateControlTable(child, BorderValues.None)));
-            }
-            return table;
-        }
-
-        private void addDetailedAppControls()
-        {
-            Paragraph para = body.AppendChild(new Paragraph());
-            Run run = para.AppendChild(new Run());
-            run.AppendChild(new Text(content.appControls.headerDetails));
-            ApplyStyleToParagraph("Heading1", para);
-            foreach (ControlEntity screen in content.appControls.controls.Where(o => o.Type == "screen").OrderBy(o => o.Name).ToList())
-            {
-                para = body.AppendChild(new Paragraph());
-                run = para.AppendChild(new Run());
-                run.AppendChild(new Text(screen.Name));
-                string bookmarkID = (new Random()).Next(100000, 999999).ToString();
-                BookmarkStart start = new BookmarkStart() { Name = CreateMD5Hash(screen.Name), Id = bookmarkID };
-                BookmarkEnd end = new BookmarkEnd() { Id = bookmarkID };
-                para.Append(start, end);
-                ApplyStyleToParagraph("Heading2", para);
-                body.AppendChild(new Paragraph(new Run()));
-                addAppControlsTable(screen);
-                foreach (ControlEntity control in content
-                    .appControls
-                    .allControls
-                    .Where(o => o.Type != "appinfo" && o.Type != "screen" && screen.Equals(o.Screen()))
-                    .OrderBy(o => o.Name)
-                    .ToList()
-                    )
+                // Trigger queries
+                List<string> triggerQueries = topic.GetTriggerQueries();
+                if (triggerQueries.Count > 0)
                 {
                     para = body.AppendChild(new Paragraph());
                     run = para.AppendChild(new Run());
-                    run.AppendChild(new Text(control.Name));
-                    bookmarkID = (new Random()).Next(100000, 999999).ToString();
-                    start = new BookmarkStart() { Name = CreateMD5Hash(control.Name), Id = bookmarkID };
-                    end = new BookmarkEnd() { Id = bookmarkID };
-                    para.Append(start, end);
+                    run.AppendChild(new Text("Trigger Queries"));
                     ApplyStyleToParagraph("Heading3", para);
-                    body.AppendChild(new Paragraph(new Run()));
-                    addAppControlsTable(control);
-                }
-            }
-            body.AppendChild(new Paragraph(new Run(new Break())));
-        }
 
-        private void addAppControlsTable(ControlEntity control)
-        {
-            Entity defaultEntity = DefaultChangeHelper.GetEntityDefaults(control.Type);
-            Table table = CreateTable();
-            Table typeTable = CreateTable(BorderValues.None);
-            typeTable.Append(CreateRow(InsertSvgImage(mainPart, AppControlIcons.GetControlIcon(control.Type), 16, 16), new Text(control.Type)));
-            table.Append(CreateRow(new Text("Type"), typeTable));
-            string category = "";
-            foreach (Rule rule in control.Rules.OrderBy(o => o.Category).ThenBy(o => o.Property).ToList())
-            {
-                string defaultValue = defaultEntity?.Rules.Find(r => r.Property == rule.Property)?.InvariantScript;
-                if (String.IsNullOrEmpty(defaultValue))
-                    defaultValue = DefaultChangeHelper.DefaultValueIfUnknown;
-                if (!documentChangedDefaultsOnly || (defaultValue != rule.InvariantScript))
-                {
-                    if (!content.ColourProperties.Contains(rule.Property))
+                    Table triggerTable = CreateTable();
+                    triggerTable.Append(CreateHeaderRow(new Text("Query")));
+                    foreach (string query in triggerQueries)
                     {
-                        if (rule.Category != category)
-                        {
-                            category = rule.Category;
-                            table.Append(CreateMergedRow(new Text(category), 2, WordDocBuilder.cellHeaderBackground));
-                        }
-                        if (rule.InvariantScript.StartsWith("RGBA("))
-                        {
-                            table.Append(CreateColorTable(rule, defaultValue));
-                        }
-                        else
-                        {
-                            table.Append(CreateRowForControlProperty(rule, defaultValue));
-                        }
+                        triggerTable.Append(CreateRow(new Text(query)));
                     }
+                    body.Append(triggerTable);
+                    body.AppendChild(new Paragraph(new Run(new Break())));
                 }
-            }
-            bool colourPropertiesHeaderAdded = false;
-            foreach (string property in content.ColourProperties)
-            {
-                Rule rule = control.Rules.Find(o => o.Property == property);
-                if (rule != null)
-                {
-                    string defaultValue = defaultEntity?.Rules.Find(r => r.Property == rule.Property)?.InvariantScript;
-                    if (String.IsNullOrEmpty(defaultValue))
-                        defaultValue = DefaultChangeHelper.DefaultValueIfUnknown;
-                    if (!documentChangedDefaultsOnly || defaultValue != rule.InvariantScript)
-                    {
-                        //we only need to add this once, and only if we add content
-                        if (!colourPropertiesHeaderAdded)
-                        {
-                            table.Append(CreateMergedRow(new Text("Color Properties"), 2, WordDocBuilder.cellHeaderBackground));
-                            colourPropertiesHeaderAdded = true;
-                        }
-                        if (rule.InvariantScript.StartsWith("RGBA("))
-                        {
-                            table.Append(CreateColorTable(rule, defaultValue));
-                        }
-                        else
-                        {
-                            table.Append(CreateRowForControlProperty(rule, defaultValue));
-                        }
-                    }
-                }
-            }
-            if (control.Children.Count > 0 || control.Parent != null)
-            {
-                table.Append(CreateMergedRow(new Text("Child & Parent Controls"), 2, WordDocBuilder.cellHeaderBackground));
-                Table childtable = CreateTable(BorderValues.None);
-                foreach (ControlEntity childControl in control.Children)
-                {
-                    childtable.Append(CreateRow(new Text(childControl.Name)));
-                }
-                table.Append(CreateRow(new Text("Child Controls"), childtable));
-                if (control.Parent != null)
-                {
-                    table.Append(CreateRow(new Text("Parent Control"), new Text(control.Parent.Name)));
-                }
-            }
-           
-            body.Append(table);
-            body.AppendChild(new Paragraph(new Run(new Break())));
-        }
 
-        private TableRow CreateRowForControlProperty(Rule rule, string defaultValue)
-        {
-            OpenXmlElement value = new Text(rule.InvariantScript);
-            if (showDefaults && defaultValue != rule.InvariantScript && !content.appControls.controlPropertiesToSkip.Contains(rule.Property))
-            {
-                value = CreateTable(BorderValues.None);
-                value.Append(CreateChangedDefaultColourRow(CreateRunWithLinebreaks(rule.InvariantScript), new Text(defaultValue)));
-            }
-            return CreateRow(new Text(rule.Property), value);
-        }
-
-        private TableRow CreateChangedDefaultColourRow(OpenXmlElement firstColumnElement, OpenXmlElement secondColumnElement)
-        {
-            TableCellWidth fiftyPercentWidth = new TableCellWidth { Type = TableWidthUnitValues.Pct, Width = "2500" };
-            TableRow tr = CreateRow(firstColumnElement, secondColumnElement);
-            //update the cell with the current value
-            TableCell tc = (TableCell)tr.FirstChild;
-            var shading = new Shading()
-            {
-                Color = "auto",
-                Fill = "ccffcc",
-                Val = ShadingPatternValues.Clear
-            };
-            tc.TableCellProperties.Append(shading);
-            tc.TableCellProperties.TableCellWidth = (TableCellWidth)fiftyPercentWidth.Clone();
-            //update the cell with the default value
-            tc = (TableCell)tr.LastChild;
-            shading = new Shading()
-            {
-                Color = "auto",
-                Fill = "ffcccc",
-                Val = ShadingPatternValues.Clear
-            };
-            tc.TableCellProperties.Append(shading);
-            tc.TableCellProperties.TableCellWidth = (TableCellWidth)fiftyPercentWidth.Clone();
-            return tr;
-        }
-
-        private TableRow CreateColorTable(Rule rule, string defaultValue)
-        {
-            Table colorTable = CreateTable(BorderValues.None);
-            colorTable.Append(CreateRow(new Text(rule.InvariantScript)));
-            string colour = ColourHelper.ParseColor(rule.InvariantScript[..(rule.InvariantScript.IndexOf(')') + 1)]);
-            if (!String.IsNullOrEmpty(colour))
-            {
-                colorTable.Append(CreateMergedRow(new Text(""), 1, colour));
-            }
-            if (showDefaults && defaultValue != rule.InvariantScript && !content.appControls.controlPropertiesToSkip.Contains(rule.Property))
-            {
-                Table defaultTable = CreateTable(BorderValues.None);
-                defaultTable.Append(CreateRow(new Text(defaultValue)));
-                string defaultColour = ColourHelper.ParseColor(defaultValue);
-                if (!String.IsNullOrEmpty(defaultColour))
+                // Knowledge source details
+                if (topic.GetTopicKind() == "KnowledgeSourceConfiguration")
                 {
-                    defaultTable.Append(CreateMergedRow(new Text(""), 1, defaultColour));
-                }
-                Table changesTable = CreateTable(BorderValues.None);
-                changesTable.Append(CreateChangedDefaultColourRow(colorTable, defaultTable));
-                return CreateRow(new Text(rule.Property), changesTable);
-            }
-            return CreateRow(new Text(rule.Property), colorTable);
-        }
+                    var (sourceKind, skillConfig) = topic.GetKnowledgeSourceDetails();
+                    para = body.AppendChild(new Paragraph());
+                    run = para.AppendChild(new Run());
+                    run.AppendChild(new Text("Knowledge Source"));
+                    ApplyStyleToParagraph("Heading3", para);
 
-        private void addAppDataSources()
-        {
-            Paragraph para = body.AppendChild(new Paragraph());
-            Run run = para.AppendChild(new Run());
-            run.AppendChild(new Text(content.appDataSources.header));
-            ApplyStyleToParagraph("Heading1", para);
-            body.AppendChild(new Paragraph(new Run(new Text(content.appDataSources.infoText))));
-            foreach (DataSource datasource in content.appDataSources.dataSources)
-            {
-                if (!datasource.isSampleDataSource() || documentSampleData)
+                    Table ksTable = CreateTable();
+                    if (!string.IsNullOrEmpty(sourceKind))
+                        ksTable.Append(CreateRow(new Text("Source Kind"), new Text(sourceKind)));
+                    if (!string.IsNullOrEmpty(skillConfig))
+                        ksTable.Append(CreateRow(new Text("Skill Configuration"), new Text(skillConfig)));
+                    body.Append(ksTable);
+                    body.AppendChild(new Paragraph(new Run(new Break())));
+                }
+
+                // Variables
+                var variables = topic.GetTopicVariables();
+                if (variables.Count > 0)
                 {
                     para = body.AppendChild(new Paragraph());
                     run = para.AppendChild(new Run());
-                    run.AppendChild(new Text(datasource.Name));
-                    ApplyStyleToParagraph("Heading2", para);
-                    body.AppendChild(new Paragraph(new Run()));
-                    Table table = CreateTable();
-                    table.Append(CreateRow(new Text("Name"), new Text(datasource.Name)));
-                    table.Append(CreateRow(new Text("Type"), new Text(datasource.Type)));
-                    if (DetailedDocumentation)
+                    run.AppendChild(new Text("Variables"));
+                    ApplyStyleToParagraph("Heading3", para);
+
+                    Table varTable = CreateTable();
+                    varTable.Append(CreateHeaderRow(new Text("Variable"), new Text("Context")));
+                    foreach (var (variable, context) in variables)
                     {
-                        table.Append(CreateMergedRow(new Text("DataSource Properties"), 2, WordDocBuilder.cellHeaderBackground));
-                        foreach (Expression expression in datasource.Properties.OrderBy(o => o.expressionOperator))
-                        {
-                            AddExpressionTable(expression, table);
-                        }
+                        varTable.Append(CreateRow(new Text(variable), new Text(context)));
                     }
-                    body.Append(table);
+                    body.Append(varTable);
                     body.AppendChild(new Paragraph(new Run(new Break())));
                 }
-            }
-            body.AppendChild(new Paragraph(new Run(new Break())));
-        }
 
-        private void addAppResources()
-        {
-            Paragraph para = body.AppendChild(new Paragraph());
-            Run run = para.AppendChild(new Run());
-            run.AppendChild(new Text(content.appResources.header));
-            ApplyStyleToParagraph("Heading1", para);
-            body.AppendChild(new Paragraph(new Run(new Text(content.appResources.infoText))));
-            foreach (Resource resource in content.appResources.resources)
-            {
-                if (!resource.isSampleResource())
+                // Topic flow diagram
+                string graphFile = topic.getTopicFileName() + "-detailed.png";
+                string graphFilePath = Path.Combine(content.folderPath, "Topics", graphFile);
+                if (File.Exists(graphFilePath))
                 {
                     para = body.AppendChild(new Paragraph());
                     run = para.AppendChild(new Run());
-                    run.AppendChild(new Text(resource.Name));
-                    ApplyStyleToParagraph("Heading2", para);
-                    body.AppendChild(new Paragraph(new Run()));
-                    Table table = CreateTable();
-                    table.Append(CreateRow(new Text("Name"), new Text(resource.Name)));
-                    table.Append(CreateRow(new Text("Content"), new Text(resource.Content)));
-                    table.Append(CreateRow(new Text("Resource Kind"), new Text(resource.ResourceKind)));
-                    if (resource.ResourceKind == "LocalFile" && content.ResourceStreams.TryGetValue(resource.Name, out MemoryStream resourceStream))
+                    run.AppendChild(new Text("Topic Flow"));
+                    ApplyStyleToParagraph("Heading3", para);
+
+                    try
                     {
-                        try
+                        ImagePart imagePart = mainPart.AddImagePart(ImagePartType.Png);
+                        int imageWidth, imageHeight;
+                        using (FileStream stream = new FileStream(graphFilePath, FileMode.Open))
                         {
-                            Drawing icon = null;
-                            Expression fileName = resource.Properties.First(o => o.expressionOperator == "FileName");
-                            if (fileName.expressionOperands[0].ToString().EndsWith("svg", StringComparison.OrdinalIgnoreCase))
+                            using (var image = Image.FromStream(stream, false, false))
                             {
-                                string svg = Encoding.Default.GetString(resourceStream.ToArray());
-                                icon = InsertSvgImage(mainPart, svg, 400, 400);
+                                imageWidth = image.Width;
+                                imageHeight = image.Height;
                             }
-                            else
-                            {
-                                ImagePart imagePart = mainPart.AddImagePart(ImagePartType.Jpeg);
-                                int imageWidth, imageHeight;
-                                using (var image = Image.FromStream(resourceStream, false, false))
-                                {
-                                    imageWidth = image.Width;
-                                    imageHeight = image.Height;
-                                }
-                                resourceStream.Position = 0;
-                                imagePart.FeedData(resourceStream);
-                                int usedWidth = (imageWidth > 400) ? 400 : imageWidth;
-                                icon = InsertImage(mainPart.GetIdOfPart(imagePart), usedWidth, (int)(usedWidth * imageHeight / imageWidth));
-                            }
-                            table.Append(CreateRow(new Text("Resource Preview"), icon));
+                            stream.Position = 0;
+                            imagePart.FeedData(stream);
                         }
-                        catch (Exception e)
-                        {
-                            table.Append(CreateRow(new Text("Resource Preview"), new Text("Resource Preview is not available, media file is invalid.")));
-                        }
+                        int usedWidth = (imageWidth > 600) ? 600 : imageWidth;
+                        Drawing drawing = InsertImage(mainPart.GetIdOfPart(imagePart), usedWidth, (int)(usedWidth * imageHeight / imageWidth));
+                        body.AppendChild(new Paragraph(new Run(drawing)));
                     }
-                    if (DetailedDocumentation)
-                    {
-                        table.Append(CreateMergedRow(new Text("Resource Properties"), 2, WordDocBuilder.cellHeaderBackground));
-                        foreach (Expression expression in resource.Properties.OrderBy(o => o.expressionOperator))
-                        {
-                            AddExpressionTable(expression, table);
-                        }
-                    }
-                    body.Append(table);
+                    catch { }
                     body.AppendChild(new Paragraph(new Run(new Break())));
                 }
             }
+        }
+        private void addAgentChannels()
+        {
+            Paragraph para = body.AppendChild(new Paragraph());
+            Run run = para.AppendChild(new Run());
+            run.AppendChild(new Text("Channels"));
+            ApplyStyleToParagraph("Heading1", para);
+
+            para = body.AppendChild(new Paragraph());
+            run = para.AppendChild(new Run());
+            run.AppendChild(new Text("Channels are not exported with the solution and are not documented automatically."));
+        }
+
+        private static readonly string NotInExportMessage = "This setting is not available in the solution export.";
+
+        private void addAgentSettings()
+        {
+            var config = content.agent.Configuration;
+            var ai = config?.aISettings;
+
+            Paragraph para = body.AppendChild(new Paragraph());
+            Run run = para.AppendChild(new Run());
+            run.AppendChild(new Text("Settings"));
+            ApplyStyleToParagraph("Heading1", para);
+
+            // Generative AI
+            para = body.AppendChild(new Paragraph());
+            run = para.AppendChild(new Run());
+            run.AppendChild(new Text("Generative AI"));
+            ApplyStyleToParagraph("Heading2", para);
+
+            Table genAiTable = CreateTable();
+            genAiTable.Append(CreateHeaderRow(new Text("Setting"), new Text("Value")));
+            genAiTable.Append(CreateRow(new Text("Generative Actions"), new Text(config?.settings?.GenerativeActionsEnabled == true ? "Enabled" : "Disabled")));
+            genAiTable.Append(CreateRow(new Text("Use Model Knowledge"), new Text(ai?.useModelKnowledge == true ? "Yes" : "No")));
+            genAiTable.Append(CreateRow(new Text("File Analysis"), new Text(ai?.isFileAnalysisEnabled == true ? "Enabled" : "Disabled")));
+            genAiTable.Append(CreateRow(new Text("Semantic Search"), new Text(ai?.isSemanticSearchEnabled == true ? "Enabled" : "Disabled")));
+            genAiTable.Append(CreateRow(new Text("Content Moderation"), new Text(ai?.contentModeration ?? "Unknown")));
+            genAiTable.Append(CreateRow(new Text("Opt-in to Latest Models"), new Text(ai?.optInUseLatestModels == true ? "Yes" : "No")));
+            body.Append(genAiTable);
             body.AppendChild(new Paragraph(new Run(new Break())));
-        }*/
+
+            // Security
+            para = body.AppendChild(new Paragraph());
+            run = para.AppendChild(new Run());
+            run.AppendChild(new Text("Security"));
+            ApplyStyleToParagraph("Heading2", para);
+
+            Table secTable = CreateTable();
+            secTable.Append(CreateHeaderRow(new Text("Setting"), new Text("Value")));
+            secTable.Append(CreateRow(new Text("Authentication Mode"), new Text(content.agent.GetAuthenticationModeDisplayName())));
+            secTable.Append(CreateRow(new Text("Authentication Trigger"), new Text(content.agent.GetAuthenticationTriggerDisplayName())));
+            body.Append(secTable);
+            body.AppendChild(new Paragraph(new Run(new Break())));
+
+            // Connection settings
+            para = body.AppendChild(new Paragraph());
+            run = para.AppendChild(new Run());
+            run.AppendChild(new Text("Connection settings"));
+            ApplyStyleToParagraph("Heading2", para);
+            body.AppendChild(new Paragraph(new Run(new Text(NotInExportMessage))));
+
+            // Authoring canvas
+            para = body.AppendChild(new Paragraph());
+            run = para.AppendChild(new Run());
+            run.AppendChild(new Text("Authoring canvas"));
+            ApplyStyleToParagraph("Heading2", para);
+            body.AppendChild(new Paragraph(new Run(new Text(NotInExportMessage))));
+
+            // Entities
+            para = body.AppendChild(new Paragraph());
+            run = para.AppendChild(new Run());
+            run.AppendChild(new Text("Entities"));
+            ApplyStyleToParagraph("Heading2", para);
+            body.AppendChild(new Paragraph(new Run(new Text(NotInExportMessage))));
+
+            // Skills
+            para = body.AppendChild(new Paragraph());
+            run = para.AppendChild(new Run());
+            run.AppendChild(new Text("Skills"));
+            ApplyStyleToParagraph("Heading2", para);
+            body.AppendChild(new Paragraph(new Run(new Text(NotInExportMessage))));
+
+            // Voice
+            para = body.AppendChild(new Paragraph());
+            run = para.AppendChild(new Run());
+            run.AppendChild(new Text("Voice"));
+            ApplyStyleToParagraph("Heading2", para);
+            body.AppendChild(new Paragraph(new Run(new Text(NotInExportMessage))));
+
+            // Languages
+            para = body.AppendChild(new Paragraph());
+            run = para.AppendChild(new Run());
+            run.AppendChild(new Text("Languages"));
+            ApplyStyleToParagraph("Heading2", para);
+
+            Table langTable = CreateTable();
+            langTable.Append(CreateHeaderRow(new Text("Setting"), new Text("Value")));
+            langTable.Append(CreateRow(new Text("Primary Language"), new Text(content.agent.GetLanguageDisplayName())));
+            body.Append(langTable);
+            body.AppendChild(new Paragraph(new Run(new Break())));
+
+            // Language understanding
+            para = body.AppendChild(new Paragraph());
+            run = para.AppendChild(new Run());
+            run.AppendChild(new Text("Language understanding"));
+            ApplyStyleToParagraph("Heading2", para);
+
+            Table luTable = CreateTable();
+            luTable.Append(CreateHeaderRow(new Text("Setting"), new Text("Value")));
+            luTable.Append(CreateRow(new Text("Recognizer"), new Text(content.agent.GetRecognizerDisplayName())));
+            body.Append(luTable);
+            body.AppendChild(new Paragraph(new Run(new Break())));
+
+            // Component collections
+            para = body.AppendChild(new Paragraph());
+            run = para.AppendChild(new Run());
+            run.AppendChild(new Text("Component collections"));
+            ApplyStyleToParagraph("Heading2", para);
+            body.AppendChild(new Paragraph(new Run(new Text(NotInExportMessage))));
+
+            // Advanced
+            para = body.AppendChild(new Paragraph());
+            run = para.AppendChild(new Run());
+            run.AppendChild(new Text("Advanced"));
+            ApplyStyleToParagraph("Heading2", para);
+
+            Table advTable = CreateTable();
+            advTable.Append(CreateHeaderRow(new Text("Setting"), new Text("Value")));
+            advTable.Append(CreateRow(new Text("Template"), new Text(content.agent.Template ?? "")));
+            advTable.Append(CreateRow(new Text("Runtime Provider"), new Text(content.agent.RuntimeProvider.ToString())));
+            body.Append(advTable);
+            body.AppendChild(new Paragraph(new Run(new Break())));
+        }
     }
 }

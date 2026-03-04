@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json;
 using PowerDocu.Common;
@@ -63,7 +64,30 @@ namespace PowerDocu.AgentDocumenter
             var input = new StringReader(topic.YamlData.Replace("@odata", "odata"));
             yaml.Load(input);
             var mapping = (YamlMappingNode)yaml.Documents[0].RootNode;
-            var triggerYaml = (YamlMappingNode)mapping.Children[new YamlScalarNode("beginDialog")];
+
+            // Guard: skip graph generation for non-AdaptiveDialog topics (e.g. KnowledgeSourceConfiguration)
+            if (!mapping.Children.TryGetValue(new YamlScalarNode("beginDialog"), out var beginDialogNode)
+                || !(beginDialogNode is YamlMappingNode triggerYamlNode))
+            {
+                // Create a simple single-node graph for non-dialog topics
+                string topicKind = "Unknown";
+                if (mapping.Children.TryGetValue(new YamlScalarNode("kind"), out var kindNode))
+                    topicKind = kindNode.ToString();
+                Node infoNode = rootGraph.GetOrAddNode("info_" + topic.Name);
+                var svgDoc = SvgDocument.FromSvg<SvgDocument>(AgentIcon.GetIcon("KnowledgeSource"));
+                using (var bmp = svgDoc.Draw(20, 0))
+                {
+                    bmp?.Save(folderPath + @"Resources\KnowledgeSource.png");
+                }
+                infoNode.SetAttribute("color", GraphColours.GetColourForAction("Trigger"));
+                infoNode.SetAttribute("fillcolor", GraphColours.GetFillColourForAction("Trigger"));
+                infoNode.SetAttribute("style", "filled");
+                infoNode.SetAttributeHtml("label", $"<table border=\"0\"><tr><td>{createActionHeaderImageTable("KnowledgeSource", topicKind + ": " + topic.Name)}</td></tr></table>");
+                rootGraph.CreateLayout();
+                NotificationHelper.SendNotification("  - Created Graph " + folderPath + generateImageFiles(rootGraph, showSubactions) + ".png");
+                return;
+            }
+            var triggerYaml = triggerYamlNode;
             Node trigger = addTriggerDetails(triggerYaml, rootGraph);
             addActionNodes(triggerYaml, trigger, rootGraph, actionsKey);
             rootGraph.CreateLayout();
@@ -94,21 +118,48 @@ namespace PowerDocu.AgentDocumenter
                     var intentYaml = (YamlMappingNode)triggerYaml.Children[new YamlScalarNode("intent")];
                     if (intentYaml.Children.TryGetValue(new YamlScalarNode("triggerQueries"), out var triggerQueryNode) && triggerQueryNode is YamlSequenceNode triggerQuerySequence)
                     {
-                        html += string.Join("<br/>", triggerQuerySequence); //triggerQuerySequence.Children.Select(q => q.ToString()));
+                        html += string.Join("<br/>", triggerQuerySequence);
                     }
                     html += "</td></tr></table></td></tr>";
 
                     break;
-                case "OnSystemRedirect":
+                case "OnConversationStart":
+                    html += "<tr><td><table border=\"1\"><tr><td>When a conversation starts</td></tr></table></td></tr>";
                     break;
-                //todo
-                /*OnUnknownIntent
-                OnError
-                OnSignIn
-                OnEscalate
-                OnUnknownIntent
-                OnConversationStart*/
+                case "OnEscalate":
+                    html += "<tr><td><table border=\"1\"><tr><td>Talk to a representative</td></tr></table></td></tr>";
+                    if (triggerYaml.Children.TryGetValue(new YamlScalarNode("intent"), out var escIntentNode)
+                        && escIntentNode is YamlMappingNode escIntentMapping
+                        && escIntentMapping.Children.TryGetValue(new YamlScalarNode("triggerQueries"), out var escTriggerNode)
+                        && escTriggerNode is YamlSequenceNode escTriggerSeq)
+                    {
+                        html += "<tr><td><table border=\"1\"><tr><td>";
+                        html += string.Join("<br/>", escTriggerSeq.Take(10));
+                        if (escTriggerSeq.Count() > 10)
+                            html += "<br/>... and more";
+                        html += "</td></tr></table></td></tr>";
+                    }
+                    break;
+                case "OnUnknownIntent":
+                    html += "<tr><td><table border=\"1\"><tr><td>Unknown / unmatched intent (Fallback)</td></tr></table></td></tr>";
+                    break;
+                case "OnRedirect":
+                    html += "<tr><td><table border=\"1\"><tr><td>Redirected from another topic</td></tr></table></td></tr>";
+                    break;
+                case "OnSystemRedirect":
+                    html += "<tr><td><table border=\"1\"><tr><td>System redirect</td></tr></table></td></tr>";
+                    break;
+                case "OnError":
+                    html += "<tr><td><table border=\"1\"><tr><td>When an error occurs</td></tr></table></td></tr>";
+                    break;
+                case "OnSignIn":
+                    html += "<tr><td><table border=\"1\"><tr><td>When sign-in is required</td></tr></table></td></tr>";
+                    break;
+                case "OnSelectIntent":
+                    html += "<tr><td><table border=\"1\"><tr><td>When multiple topics matched</td></tr></table></td></tr>";
+                    break;
                 default:
+                    html += $"<tr><td><table border=\"1\"><tr><td>{System.Web.HttpUtility.HtmlEncode(triggerType)}</td></tr></table></td></tr>";
                     break;
             }
             html += "</table>";
@@ -375,10 +426,43 @@ namespace PowerDocu.AgentDocumenter
                             prevNode = clusterExitNode;
                             break;
                         case "AIModel":
-                            string aiModelHtml = $"<table border=\"0\"><tr><td>{createActionHeaderImageTable(actionType, "Prompt")}</td></tr>";
-                            //todo check why displayName is sometimes not available, and how it is rendered
-                            aiModelHtml += $"<tr><td>{displayName}</td></tr></table>";
-                            //todo
+                            string aiModelHtml = $"<table border=\"0\"><tr><td>{createActionHeaderImageTable(actionType, !string.IsNullOrEmpty(displayName) ? $"Prompt: {displayName}" : "Prompt")}</td></tr>";
+
+                            // Show AI Model ID if present
+                            if (((YamlMappingNode)action).Children.TryGetValue(new YamlScalarNode("aIModelId"), out var aiModelIdNode))
+                            {
+                                aiModelHtml += $"<tr><td><b>AI Model ID:</b> {generateMultiLineText(System.Web.HttpUtility.HtmlEncode(aiModelIdNode.ToString()))}</td></tr>";
+                            }
+
+                            // Show input bindings
+                            if (((YamlMappingNode)action).Children.TryGetValue(new YamlScalarNode("input"), out var aiInputNode)
+                                && aiInputNode is YamlMappingNode aiInputMapping
+                                && aiInputMapping.Children.TryGetValue(new YamlScalarNode("binding"), out var aiBindingNode)
+                                && aiBindingNode is YamlMappingNode aiBindingMapping)
+                            {
+                                aiModelHtml += "<tr><td><table border=\"1\"><tr><td><b>Inputs:</b></td></tr>";
+                                foreach (var kvp in aiBindingMapping.Children)
+                                {
+                                    aiModelHtml += $"<tr><td><b>{System.Web.HttpUtility.HtmlEncode(kvp.Key.ToString())}:</b> {generateMultiLineText(System.Web.HttpUtility.HtmlEncode(kvp.Value.ToString()))}</td></tr>";
+                                }
+                                aiModelHtml += "</table></td></tr>";
+                            }
+
+                            // Show output bindings
+                            if (((YamlMappingNode)action).Children.TryGetValue(new YamlScalarNode("output"), out var aiOutputNode)
+                                && aiOutputNode is YamlMappingNode aiOutputMapping
+                                && aiOutputMapping.Children.TryGetValue(new YamlScalarNode("binding"), out var aiOutputBindingNode)
+                                && aiOutputBindingNode is YamlMappingNode aiOutputBindingMapping)
+                            {
+                                aiModelHtml += "<tr><td><table border=\"1\"><tr><td><b>Outputs:</b></td></tr>";
+                                foreach (var kvp in aiOutputBindingMapping.Children)
+                                {
+                                    aiModelHtml += $"<tr><td><b>{System.Web.HttpUtility.HtmlEncode(kvp.Key.ToString())}:</b> {generateMultiLineText(System.Web.HttpUtility.HtmlEncode(kvp.Value.ToString()))}</td></tr>";
+                                }
+                                aiModelHtml += "</table></td></tr>";
+                            }
+
+                            aiModelHtml += "</table>";
                             actionNode.SetAttributeHtml("label", aiModelHtml);
                             break;
                         case "Message":
@@ -410,12 +494,130 @@ namespace PowerDocu.AgentDocumenter
                             actionNode.SetAttributeHtml("label", html);
                             break;
                         case "CancelAllDialogs":
-                            actionNode.SetAttributeHtml("label", $"<table border=\"0\"><tr><td>{createActionHeaderImageTable(actionType, "End all topics")}</td></tr><tr><td></td></tr></table>");
-                            //todo use displayName if it exists instead of default text
+                            actionNode.SetAttributeHtml("label", $"<table border=\"0\"><tr><td>{createActionHeaderImageTable(actionType, !string.IsNullOrEmpty(displayName) ? displayName : "End all topics")}</td></tr><tr><td></td></tr></table>");
                             break;
                         case "LogCustomTelemetry":
-                            actionNode.SetAttributeHtml("label", $"<table border=\"0\"><tr><td>{createActionHeaderImageTable(actionType, "Log custom telemetry event")}</td></tr><tr><td></td></tr></table>");
-                            //todo use displayName if it exists instead of default text
+                            actionNode.SetAttributeHtml("label", $"<table border=\"0\"><tr><td>{createActionHeaderImageTable(actionType, !string.IsNullOrEmpty(displayName) ? displayName : "Log custom telemetry event")}</td></tr><tr><td></td></tr></table>");
+                            break;
+                        case "InvokeFlow":
+                            string flowHtml = $"<table border=\"0\"><tr><td>{createActionHeaderImageTable(actionType, !string.IsNullOrEmpty(displayName) ? $"Flow: {displayName}" : "Call a flow")}</td></tr>";
+                            if (((YamlMappingNode)action).Children.TryGetValue(new YamlScalarNode("flowId"), out var flowIdNode))
+                            {
+                                flowHtml += $"<tr><td><b>Flow ID:</b> {generateMultiLineText(System.Web.HttpUtility.HtmlEncode(flowIdNode.ToString()))}</td></tr>";
+                            }
+                            if (((YamlMappingNode)action).Children.TryGetValue(new YamlScalarNode("input"), out var flowInputNode)
+                                && flowInputNode is YamlMappingNode flowInputMapping
+                                && flowInputMapping.Children.TryGetValue(new YamlScalarNode("binding"), out var flowBindingNode)
+                                && flowBindingNode is YamlMappingNode flowBindingMapping)
+                            {
+                                flowHtml += "<tr><td><table border=\"1\"><tr><td><b>Inputs:</b></td></tr>";
+                                foreach (var kvp in flowBindingMapping.Children)
+                                {
+                                    flowHtml += $"<tr><td><b>{System.Web.HttpUtility.HtmlEncode(kvp.Key.ToString())}:</b> {generateMultiLineText(System.Web.HttpUtility.HtmlEncode(kvp.Value.ToString()))}</td></tr>";
+                                }
+                                flowHtml += "</table></td></tr>";
+                            }
+                            if (((YamlMappingNode)action).Children.TryGetValue(new YamlScalarNode("output"), out var flowOutputNode)
+                                && flowOutputNode is YamlMappingNode flowOutputMapping
+                                && flowOutputMapping.Children.TryGetValue(new YamlScalarNode("binding"), out var flowOutputBindingNode)
+                                && flowOutputBindingNode is YamlMappingNode flowOutputBindingMapping)
+                            {
+                                flowHtml += "<tr><td><table border=\"1\"><tr><td><b>Outputs:</b></td></tr>";
+                                foreach (var kvp in flowOutputBindingMapping.Children)
+                                {
+                                    flowHtml += $"<tr><td><b>{System.Web.HttpUtility.HtmlEncode(kvp.Key.ToString())}:</b> {generateMultiLineText(System.Web.HttpUtility.HtmlEncode(kvp.Value.ToString()))}</td></tr>";
+                                }
+                                flowHtml += "</table></td></tr>";
+                            }
+                            flowHtml += "</table>";
+                            actionNode.SetAttributeHtml("label", flowHtml);
+                            break;
+                        case "InvokeConnector":
+                            string connHtml = $"<table border=\"0\"><tr><td>{createActionHeaderImageTable(actionType, !string.IsNullOrEmpty(displayName) ? $"Connector: {displayName}" : "Call a connector")}</td></tr>";
+                            if (((YamlMappingNode)action).Children.TryGetValue(new YamlScalarNode("connectionReference"), out var connRefNode))
+                            {
+                                connHtml += $"<tr><td><b>Connection:</b> {generateMultiLineText(System.Web.HttpUtility.HtmlEncode(connRefNode.ToString()))}</td></tr>";
+                            }
+                            connHtml += "</table>";
+                            actionNode.SetAttributeHtml("label", connHtml);
+                            break;
+                        case "EndConversation":
+                            actionNode.SetAttributeHtml("label", $"<table border=\"0\"><tr><td>{createActionHeaderImageTable(actionType, !string.IsNullOrEmpty(displayName) ? displayName : "End conversation")}</td></tr></table>");
+                            break;
+                        case "EndDialog":
+                            actionNode.SetAttributeHtml("label", $"<table border=\"0\"><tr><td>{createActionHeaderImageTable(actionType, !string.IsNullOrEmpty(displayName) ? displayName : "End dialog")}</td></tr></table>");
+                            break;
+                        case "OAuthInput":
+                            string oauthTitle = "Sign in";
+                            if (((YamlMappingNode)action).Children.TryGetValue(new YamlScalarNode("title"), out var oauthTitleNode))
+                                oauthTitle = oauthTitleNode.ToString();
+                            string oauthText = "";
+                            if (((YamlMappingNode)action).Children.TryGetValue(new YamlScalarNode("text"), out var oauthTextNode))
+                                oauthText = oauthTextNode.ToString();
+                            string oauthHtml = $"<table border=\"0\"><tr><td>{createActionHeaderImageTable(actionType, $"Sign In: {System.Web.HttpUtility.HtmlEncode(oauthTitle)}")}</td></tr>";
+                            if (!string.IsNullOrEmpty(oauthText))
+                                oauthHtml += $"<tr><td>{generateMultiLineText(System.Web.HttpUtility.HtmlEncode(oauthText))}</td></tr>";
+                            oauthHtml += "</table>";
+                            actionNode.SetAttributeHtml("label", oauthHtml);
+                            break;
+                        case "SearchAndSummarize":
+                            string searchHtml = $"<table border=\"0\"><tr><td>{createActionHeaderImageTable(actionType, !string.IsNullOrEmpty(displayName) ? displayName : "Search and summarize content")}</td></tr>";
+                            if (((YamlMappingNode)action).Children.TryGetValue(new YamlScalarNode("variable"), out var searchVarNode))
+                            {
+                                searchHtml += $"<tr><td><b>Save to:</b> {System.Web.HttpUtility.HtmlEncode(searchVarNode.ToString())}</td></tr>";
+                            }
+                            searchHtml += "</table>";
+                            actionNode.SetAttributeHtml("label", searchHtml);
+                            break;
+                        case "RedirectToTopic":
+                            string redirectHeader = !string.IsNullOrEmpty(displayName) ? $"Redirect: {displayName}" : "Redirect to topic";
+                            string redirectHtml = $"<table border=\"0\"><tr><td>{createActionHeaderImageTable(actionType, redirectHeader)}</td></tr>";
+
+                            // Show target dialog/topic for BeginDialog actions
+                            if (((YamlMappingNode)action).Children.TryGetValue(new YamlScalarNode("dialog"), out var dialogNode))
+                            {
+                                string dialogRef = dialogNode.ToString();
+                                // Extract the topic name from the schema name (e.g. cr6b0_agent.topic.SessionAudit -> SessionAudit)
+                                string topicName = dialogRef.Contains('.') ? dialogRef.Substring(dialogRef.LastIndexOf('.') + 1) : dialogRef;
+                                redirectHtml += $"<tr><td><table border=\"1\"><tr><td><b>Target Topic:</b> {System.Web.HttpUtility.HtmlEncode(topicName)}</td></tr></table></td></tr>";
+                            }
+
+                            // Show target action ID for GotoAction (internal jump)
+                            if (((YamlMappingNode)action).Children.TryGetValue(new YamlScalarNode("actionId"), out var actionIdNode))
+                            {
+                                redirectHtml += $"<tr><td><table border=\"1\"><tr><td><b>Go to:</b> {System.Web.HttpUtility.HtmlEncode(actionIdNode.ToString())}</td></tr></table></td></tr>";
+                            }
+
+                            // Show input bindings if present (for parameterized topic calls)
+                            if (((YamlMappingNode)action).Children.TryGetValue(new YamlScalarNode("input"), out var redirectInputNode)
+                                && redirectInputNode is YamlMappingNode redirectInputMapping
+                                && redirectInputMapping.Children.TryGetValue(new YamlScalarNode("binding"), out var redirectBindingNode)
+                                && redirectBindingNode is YamlMappingNode redirectBindingMapping)
+                            {
+                                redirectHtml += "<tr><td><table border=\"1\"><tr><td><b>Inputs:</b></td></tr>";
+                                foreach (var kvp in redirectBindingMapping.Children)
+                                {
+                                    redirectHtml += $"<tr><td><b>{System.Web.HttpUtility.HtmlEncode(kvp.Key.ToString())}:</b> {generateMultiLineText(System.Web.HttpUtility.HtmlEncode(kvp.Value.ToString()))}</td></tr>";
+                                }
+                                redirectHtml += "</table></td></tr>";
+                            }
+
+                            // Show output bindings if present
+                            if (((YamlMappingNode)action).Children.TryGetValue(new YamlScalarNode("output"), out var redirectOutputNode)
+                                && redirectOutputNode is YamlMappingNode redirectOutputMapping
+                                && redirectOutputMapping.Children.TryGetValue(new YamlScalarNode("binding"), out var redirectOutputBindingNode)
+                                && redirectOutputBindingNode is YamlMappingNode redirectOutputBindingMapping)
+                            {
+                                redirectHtml += "<tr><td><table border=\"1\"><tr><td><b>Outputs:</b></td></tr>";
+                                foreach (var kvp in redirectOutputBindingMapping.Children)
+                                {
+                                    redirectHtml += $"<tr><td><b>{System.Web.HttpUtility.HtmlEncode(kvp.Key.ToString())}:</b> {generateMultiLineText(System.Web.HttpUtility.HtmlEncode(kvp.Value.ToString()))}</td></tr>";
+                                }
+                                redirectHtml += "</table></td></tr>";
+                            }
+
+                            redirectHtml += "</table>";
+                            actionNode.SetAttributeHtml("label", redirectHtml);
                             break;
                         default:
                             actionNode.SetAttribute("label", CharsetHelper.GetSafeName(actionName));
@@ -458,8 +660,25 @@ namespace PowerDocu.AgentDocumenter
                     return "LogCustomTelemetry";
                 case "Question":
                     return "Question";
+                case "InvokeFlowAction":
+                    return "InvokeFlow";
+                case "InvokeConnectorAction":
+                    return "InvokeConnector";
+                case "EndConversation":
+                    return "EndConversation";
+                case "EndDialog":
+                    return "EndDialog";
+                case "OAuthInput":
+                    return "OAuthInput";
+                case "SearchAndSummarizeContent":
+                    return "SearchAndSummarize";
+                case "GotoAction":
+                case "BeginDialog":
+                    return "RedirectToTopic";
+                case "CancelAllDialogs":
+                    return "CancelAllDialogs";
                 default:
-                    return actionType; //return the type as is if not recognized
+                    return actionType;
             }
         }
 
@@ -469,7 +688,40 @@ namespace PowerDocu.AgentDocumenter
             string filename = topic.getTopicFileName() + (showSubactions ? "-detailed" : "");
             rootGraph.ToPngFile(folderPath + filename + ".png");
             rootGraph.ToSvgFile(folderPath + filename + ".svg");
+            // Post-process SVG to embed referenced PNG icons as base64 data URIs,
+            // so the SVG is self-contained and renders correctly when viewed from HTML pages.
+            EmbedImagesInSvg(folderPath + filename + ".svg");
             return filename;
+        }
+
+        /// <summary>
+        /// Reads an SVG file and replaces all xlink:href/href image references pointing
+        /// to local PNG files with inline base64 data URIs.
+        /// </summary>
+        private static void EmbedImagesInSvg(string svgFilePath)
+        {
+            if (!File.Exists(svgFilePath)) return;
+            string svgContent = File.ReadAllText(svgFilePath);
+            // Match xlink:href="..." or href="..." attributes that point to .png files
+            string pattern = @"(xlink:href|href)=""([^""]+\.png)""";
+            string result = Regex.Replace(svgContent, pattern, match =>
+            {
+                string attr = match.Groups[1].Value;
+                string imagePath = match.Groups[2].Value;
+                // Resolve relative paths against the SVG's directory
+                if (!Path.IsPathRooted(imagePath))
+                {
+                    imagePath = Path.Combine(Path.GetDirectoryName(svgFilePath), imagePath);
+                }
+                if (File.Exists(imagePath))
+                {
+                    byte[] imageBytes = File.ReadAllBytes(imagePath);
+                    string base64 = Convert.ToBase64String(imageBytes);
+                    return $"{attr}=\"data:image/png;base64,{base64}\"";
+                }
+                return match.Value;
+            });
+            File.WriteAllText(svgFilePath, result);
         }
 
         //splits a text into multiple lines (<br/> for line breaks), with each line having a maximum of 65 characters
@@ -727,6 +979,20 @@ namespace PowerDocu.AgentDocumenter
         public static string LogCustomTelemetryFillColour = "#edebe9";
         public static string QuestionColour = "#672367";
         public static string QuestionFillColour = "#f0e9f0";
+        public static string InvokeFlowColour = "#0078d4";
+        public static string InvokeFlowFillColour = "#e5f1fb";
+        public static string InvokeConnectorColour = "#0078d4";
+        public static string InvokeConnectorFillColour = "#e5f1fb";
+        public static string EndConversationColour = "#6bb700";
+        public static string EndConversationFillColour = "#f0f8e6";
+        public static string EndDialogColour = "#6bb700";
+        public static string EndDialogFillColour = "#f0f8e6";
+        public static string OAuthInputColour = "#0078d4";
+        public static string OAuthInputFillColour = "#e5f1fb";
+        public static string SearchAndSummarizeColour = "#0078d4";
+        public static string SearchAndSummarizeFillColour = "#e5f1fb";
+        public static string RedirectToTopicColour = "#0077ff";
+        public static string RedirectToTopicFillColour = "#e7f4ff";
 
         public static string GetColourForAction(string actionType)
         {
@@ -741,6 +1007,13 @@ namespace PowerDocu.AgentDocumenter
                 "LogCustomTelemetry" => LogCustomTelemetryColour,
                 "AdaptiveCard" => AdaptiveCardColour,
                 "AIModel" => AIModelCardColour,
+                "InvokeFlow" => InvokeFlowColour,
+                "InvokeConnector" => InvokeConnectorColour,
+                "EndConversation" => EndConversationColour,
+                "EndDialog" => EndDialogColour,
+                "OAuthInput" => OAuthInputColour,
+                "SearchAndSummarize" => SearchAndSummarizeColour,
+                "RedirectToTopic" => RedirectToTopicColour,
                 _ => "black",
             };
         }
@@ -758,6 +1031,13 @@ namespace PowerDocu.AgentDocumenter
                 "LogCustomTelemetry" => LogCustomTelemetryFillColour,
                 "AdaptiveCard" => AdaptiveCardFillColour,
                 "AIModel" => AIModelCardFillColour,
+                "InvokeFlow" => InvokeFlowFillColour,
+                "InvokeConnector" => InvokeConnectorFillColour,
+                "EndConversation" => EndConversationFillColour,
+                "EndDialog" => EndDialogFillColour,
+                "OAuthInput" => OAuthInputFillColour,
+                "SearchAndSummarize" => SearchAndSummarizeFillColour,
+                "RedirectToTopic" => RedirectToTopicFillColour,
                 _ => "red",
             };
             return colour;

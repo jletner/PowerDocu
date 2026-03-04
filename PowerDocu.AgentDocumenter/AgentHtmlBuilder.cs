@@ -43,17 +43,18 @@ namespace PowerDocu.AgentDocumenter
             NotificationHelper.SendNotification("Created HTML documentation for " + content.filename);
         }
 
-        private string getNavigationHtml()
+        private string getNavigationHtml(bool isSubfolder = false)
         {
+            string prefix = isSubfolder ? "../" : "";
             var navItems = new List<(string label, string href)>
             {
-                ("Overview", mainFileName),
-                ("Knowledge", knowledgeFileName),
-                ("Tools", toolsFileName),
-                ("Agents", agentsFileName),
-                ("Topics", topicsFileName),
-                ("Channels", channelsFileName),
-                ("Settings", settingsFileName)
+                ("Overview", prefix + mainFileName),
+                ("Knowledge", prefix + knowledgeFileName),
+                ("Tools", prefix + toolsFileName),
+                ("Agents", prefix + agentsFileName),
+                ("Topics", prefix + topicsFileName),
+                ("Channels", prefix + channelsFileName),
+                ("Settings", prefix + settingsFileName)
             };
             StringBuilder sb = new StringBuilder();
             sb.AppendLine($"<div class=\"nav-title\">{Encode(content.filename)}</div>");
@@ -61,8 +62,9 @@ namespace PowerDocu.AgentDocumenter
             return sb.ToString();
         }
 
-        private string buildMetadataTable()
+        private string buildMetadataTable(bool isSubfolder = false)
         {
+            string prefix = isSubfolder ? "../" : "";
             StringBuilder sb = new StringBuilder();
             sb.Append(TableStart("Property", "Value"));
             sb.Append(TableRow("Agent Name", content.agent.Name));
@@ -72,7 +74,7 @@ namespace PowerDocu.AgentDocumenter
                 Bitmap agentLogo = ImageHelper.ConvertBase64ToBitmap(content.agent.IconBase64);
                 string logoFileName = $"agentlogo-{content.filename.Replace(" ", "-")}.png";
                 agentLogo.Save(content.folderPath + logoFileName);
-                sb.Append(TableRowRaw("Agent Logo", Image("Agent Logo", logoFileName)));
+                sb.Append(TableRowRaw("Agent Logo", Image("Agent Logo", prefix + logoFileName)));
                 agentLogo.Dispose();
             }
             sb.Append(TableRow(content.headerDocumentationGenerated, PowerDocuReleaseHelper.GetTimestampWithVersion()));
@@ -88,13 +90,13 @@ namespace PowerDocu.AgentDocumenter
 
             body.AppendLine(Heading(2, content.Details));
             body.AppendLine(Heading(3, content.Description));
-            body.AppendLine(Paragraph(content.agent.GetDescription()));
+            body.AppendLine(ParagraphWithLinebreaks(content.agent.GetDescription()));
             body.AppendLine(Heading(3, content.Orchestration));
             body.AppendLine(Paragraph($"{content.OrchestrationText} - {content.agent.GetOrchestration()}"));
             body.AppendLine(Heading(3, content.ResponseModel));
             body.AppendLine(Paragraph(content.agent.GetResponseModel()));
             body.AppendLine(Heading(3, content.Instructions));
-            body.AppendLine(Paragraph(content.agent.GetInstructions()));
+            body.AppendLine(ParagraphWithLinebreaks(content.agent.GetInstructions()));
 
             body.AppendLine(Heading(3, content.Knowledge));
             foreach (BotComponent knowledgeSource in content.agent.GetKnowledge())
@@ -114,7 +116,7 @@ namespace PowerDocu.AgentDocumenter
             foreach (BotComponent topic in content.agent.GetTopics().OrderBy(o => o.Name))
             {
                 string topicFile = topicFileNames.GetValueOrDefault(topic.Name, "#");
-                body.AppendLine(BulletItemRaw(Link(topic.Name, topicFile)));
+                body.AppendLine(BulletItemRaw(Link(topic.Name, "Topics/" + topicFile)));
             }
             body.AppendLine(BulletListEnd());
 
@@ -175,11 +177,14 @@ namespace PowerDocu.AgentDocumenter
             body.AppendLine(Heading(1, $"Agent - {content.filename}"));
             body.AppendLine(buildMetadataTable());
             body.AppendLine(Heading(2, content.Topics));
-            body.Append(TableStart("Name", "Type", "Trigger", "Enabled"));
+            body.Append(TableStart("Name", "Type", "Trigger", "Kind"));
             foreach (BotComponent topic in content.agent.GetTopics().OrderBy(o => o.Name).ToList())
             {
                 string topicFile = topicFileNames.GetValueOrDefault(topic.Name, "#");
-                body.Append(TableRowRaw(Link(topic.Name, topicFile), "TODO", Encode(topic.GetTriggerTypeForTopic()), "TODO"));
+                string topicType = topic.GetComponentTypeDisplayName();
+                string triggerType = topic.GetTriggerTypeForTopic();
+                string topicKind = topic.GetTopicKind() == "KnowledgeSourceConfiguration" ? "Knowledge" : triggerType;
+                body.Append(TableRowRaw(Link(topic.Name, "Topics/" + topicFile), Encode(topicType), Encode(triggerType), Encode(topicKind)));
             }
             body.AppendLine(TableEnd());
 
@@ -189,16 +194,90 @@ namespace PowerDocu.AgentDocumenter
             // Build per-topic pages
             foreach (BotComponent topic in content.agent.GetTopics().OrderBy(o => o.Name).ToList())
             {
-                StringBuilder topicBody = new StringBuilder();
-                topicBody.AppendLine(Heading(1, $"Agent - {content.filename}"));
-                topicBody.AppendLine(buildMetadataTable());
-                topicBody.AppendLine(Heading(2, "Topic: " + topic.Name));
-                topicBody.AppendLine(Paragraph("Trigger: " + topic.GetTriggerTypeForTopic()));
-
                 string topicFile = topicFileNames.GetValueOrDefault(topic.Name, topic.Name + ".html");
-                SaveHtmlFile(Path.Combine(content.folderPath, topicFile),
-                    WrapInHtmlPage($"Topic: {topic.Name}", topicBody.ToString(), getNavigationHtml()));
+                buildTopicPage(topic, topicFile);
             }
+        }
+
+        private void buildTopicPage(BotComponent topic, string topicFile)
+        {
+            StringBuilder topicBody = new StringBuilder();
+            topicBody.AppendLine(Heading(1, $"Agent - {content.filename}"));
+            topicBody.AppendLine(buildMetadataTable(true));
+            topicBody.AppendLine(Heading(2, "Topic: " + topic.Name));
+
+            // Metadata table
+            topicBody.Append(TableStart("Property", "Value"));
+            topicBody.Append(TableRow("Name", topic.Name));
+            topicBody.Append(TableRow("Type", topic.GetComponentTypeDisplayName()));
+            topicBody.Append(TableRow("Trigger", topic.GetTriggerTypeForTopic()));
+            topicBody.Append(TableRow("Topic Kind", topic.GetTopicKind()));
+            if (!string.IsNullOrEmpty(topic.Description))
+            {
+                topicBody.Append(TableRow("Description", topic.Description));
+            }
+            string modelDesc = topic.GetModelDescription();
+            if (!string.IsNullOrEmpty(modelDesc))
+            {
+                topicBody.Append(TableRow("Model Description", modelDesc));
+            }
+            string startBehavior = topic.GetStartBehavior();
+            if (!string.IsNullOrEmpty(startBehavior))
+            {
+                topicBody.Append(TableRow("Start Behavior", startBehavior));
+            }
+            topicBody.AppendLine(TableEnd());
+
+            // Trigger queries
+            List<string> triggerQueries = topic.GetTriggerQueries();
+            if (triggerQueries.Count > 0)
+            {
+                topicBody.AppendLine(Heading(3, "Trigger Queries"));
+                topicBody.AppendLine(BulletListStart());
+                foreach (string query in triggerQueries)
+                {
+                    topicBody.AppendLine(BulletItem(query));
+                }
+                topicBody.AppendLine(BulletListEnd());
+            }
+
+            // Knowledge source details
+            if (topic.GetTopicKind() == "KnowledgeSourceConfiguration")
+            {
+                var (sourceKind, skillConfig) = topic.GetKnowledgeSourceDetails();
+                topicBody.AppendLine(Heading(3, "Knowledge Source"));
+                topicBody.Append(TableStart("Property", "Value"));
+                if (!string.IsNullOrEmpty(sourceKind))
+                    topicBody.Append(TableRow("Source Kind", sourceKind));
+                if (!string.IsNullOrEmpty(skillConfig))
+                    topicBody.Append(TableRow("Skill Configuration", skillConfig));
+                topicBody.AppendLine(TableEnd());
+            }
+
+            // Variables
+            var variables = topic.GetTopicVariables();
+            if (variables.Count > 0)
+            {
+                topicBody.AppendLine(Heading(3, "Variables"));
+                topicBody.Append(TableStart("Variable", "Context"));
+                foreach (var (variable, context) in variables)
+                {
+                    topicBody.Append(TableRow(variable, context));
+                }
+                topicBody.AppendLine(TableEnd());
+            }
+
+            // Topic flow diagram
+            string graphFile = topic.getTopicFileName() + "-detailed.svg";
+            if (File.Exists(Path.Combine(content.folderPath, "Topics", graphFile)))
+            {
+                topicBody.AppendLine(Heading(3, "Topic Flow"));
+                topicBody.AppendLine(ParagraphRaw(Image("Topic Flow Diagram", graphFile)));
+            }
+
+            Directory.CreateDirectory(Path.Combine(content.folderPath, "Topics"));
+            SaveHtmlFile(Path.Combine(content.folderPath, "Topics", topicFile),
+                WrapInHtmlPage($"Topic: {topic.Name}", topicBody.ToString(), getNavigationHtml(true), "../style.css"));
         }
 
         private void addAgentChannels()
@@ -207,10 +286,12 @@ namespace PowerDocu.AgentDocumenter
             body.AppendLine(Heading(1, $"Agent - {content.filename}"));
             body.AppendLine(buildMetadataTable());
             body.AppendLine(Heading(2, "Channels"));
-            body.AppendLine(Paragraph("Channel configuration for this agent."));
+            body.AppendLine(Paragraph("Channels are not exported with the solution and are not documented automatically."));
             SaveHtmlFile(Path.Combine(content.folderPath, channelsFileName),
                 WrapInHtmlPage($"Channels - {content.filename}", body.ToString(), getNavigationHtml()));
         }
+
+        private static readonly string NotInExportMessage = "This setting is not available in the solution export.";
 
         private void addAgentSettings()
         {
@@ -218,14 +299,69 @@ namespace PowerDocu.AgentDocumenter
             body.AppendLine(Heading(1, $"Agent - {content.filename}"));
             body.AppendLine(buildMetadataTable());
 
-            string[] sections = new[] { "Generative AI", "Security", "Connection settings",
-                "Authoring canvas", "Entities", "Skills", "Voice", "Languages",
-                "Language understanding", "Component collections", "Advanced" };
-            foreach (string section in sections)
-            {
-                body.AppendLine(Heading(2, section));
-                body.AppendLine(Paragraph("TODO"));
-            }
+            var config = content.agent.Configuration;
+            var ai = config?.aISettings;
+
+            // Generative AI
+            body.AppendLine(Heading(2, "Generative AI"));
+            body.Append(TableStart("Setting", "Value"));
+            body.Append(TableRow("Generative Actions", config?.settings?.GenerativeActionsEnabled == true ? "Enabled" : "Disabled"));
+            body.Append(TableRow("Use Model Knowledge", ai?.useModelKnowledge == true ? "Yes" : "No"));
+            body.Append(TableRow("File Analysis", ai?.isFileAnalysisEnabled == true ? "Enabled" : "Disabled"));
+            body.Append(TableRow("Semantic Search", ai?.isSemanticSearchEnabled == true ? "Enabled" : "Disabled"));
+            body.Append(TableRow("Content Moderation", ai?.contentModeration ?? "Unknown"));
+            body.Append(TableRow("Opt-in to Latest Models", ai?.optInUseLatestModels == true ? "Yes" : "No"));
+            body.AppendLine(TableEnd());
+
+            // Security
+            body.AppendLine(Heading(2, "Security"));
+            body.Append(TableStart("Setting", "Value"));
+            body.Append(TableRow("Authentication Mode", content.agent.GetAuthenticationModeDisplayName()));
+            body.Append(TableRow("Authentication Trigger", content.agent.GetAuthenticationTriggerDisplayName()));
+            body.AppendLine(TableEnd());
+
+            // Connection settings
+            body.AppendLine(Heading(2, "Connection settings"));
+            body.AppendLine(Paragraph(NotInExportMessage));
+
+            // Authoring canvas
+            body.AppendLine(Heading(2, "Authoring canvas"));
+            body.AppendLine(Paragraph(NotInExportMessage));
+
+            // Entities
+            body.AppendLine(Heading(2, "Entities"));
+            body.AppendLine(Paragraph(NotInExportMessage));
+
+            // Skills
+            body.AppendLine(Heading(2, "Skills"));
+            body.AppendLine(Paragraph(NotInExportMessage));
+
+            // Voice
+            body.AppendLine(Heading(2, "Voice"));
+            body.AppendLine(Paragraph(NotInExportMessage));
+
+            // Languages
+            body.AppendLine(Heading(2, "Languages"));
+            body.Append(TableStart("Setting", "Value"));
+            body.Append(TableRow("Primary Language", content.agent.GetLanguageDisplayName()));
+            body.AppendLine(TableEnd());
+
+            // Language understanding
+            body.AppendLine(Heading(2, "Language understanding"));
+            body.Append(TableStart("Setting", "Value"));
+            body.Append(TableRow("Recognizer", content.agent.GetRecognizerDisplayName()));
+            body.AppendLine(TableEnd());
+
+            // Component collections
+            body.AppendLine(Heading(2, "Component collections"));
+            body.AppendLine(Paragraph(NotInExportMessage));
+
+            // Advanced
+            body.AppendLine(Heading(2, "Advanced"));
+            body.Append(TableStart("Setting", "Value"));
+            body.Append(TableRow("Template", content.agent.Template ?? ""));
+            body.Append(TableRow("Runtime Provider", content.agent.RuntimeProvider.ToString()));
+            body.AppendLine(TableEnd());
 
             SaveHtmlFile(Path.Combine(content.folderPath, settingsFileName),
                 WrapInHtmlPage($"Settings - {content.filename}", body.ToString(), getNavigationHtml()));

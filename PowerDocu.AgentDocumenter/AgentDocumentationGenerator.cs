@@ -34,10 +34,12 @@ namespace PowerDocu.AgentDocumenter
                     //todo solution path
                         path + CharsetHelper.GetSafeName(@"\AgentDoc " + agent.Name + @"\");
                     Directory.CreateDirectory(folderPath);
-                    //create topic diagrams
+                    //create topic diagrams in Topics subfolder
+                    string topicsFolderPath = folderPath + @"Topics\";
+                    Directory.CreateDirectory(topicsFolderPath);
                     foreach (BotComponent topic in agent.GetTopics())
                     {
-                        GraphBuilder graphBuilder = new GraphBuilder(agent.Name, topic, folderPath);
+                        GraphBuilder graphBuilder = new GraphBuilder(agent.Name, topic, topicsFolderPath);
                         graphBuilder.buildDetailedGraph();
                     }
                     /*
