@@ -495,7 +495,7 @@ namespace PowerDocu.AgentDocumenter
                             {
                                 variableValue = variableValue.Substring(1);
                             }
-                            setVarHtml += createCardBodyRow($"<table border=\"1\" cellpadding=\"4\"><tr><td>{generateMultiLineText(variableValue)}</td></tr></table>");
+                            setVarHtml += createCardBodyRow($"<table border=\"1\" cellpadding=\"4\"><tr><td>{generateMultiLineText(System.Web.HttpUtility.HtmlEncode(variableValue))}</td></tr></table>");
                             setVarHtml += createCardEnd();
                             actionNode.SetAttributeHtml("label", setVarHtml);
                             break;
@@ -841,18 +841,31 @@ namespace PowerDocu.AgentDocumenter
         //splits a text into multiple lines (<br/> for line breaks), with each line having a maximum of 65 characters
         private string generateMultiLineText(string text)
         {
+            const int maxLineLength = 65;
             string[] words = text.Split(' ');
             string multiLineText = "";
             int lineLength = 0;
             for (var counter = 0; counter < words.Length; counter++)
             {
-                lineLength += words[counter].Length + 1;
-                if (lineLength >= 65)
+                string word = words[counter];
+                // Force-break words longer than the max line length
+                while (word.Length > maxLineLength)
+                {
+                    if (lineLength > 0)
+                    {
+                        multiLineText += "<br/>";
+                        lineLength = 0;
+                    }
+                    multiLineText += word.Substring(0, maxLineLength) + "<br/>";
+                    word = word.Substring(maxLineLength);
+                }
+                if (lineLength + word.Length + 1 >= maxLineLength && lineLength > 0)
                 {
                     multiLineText += "<br/>";
                     lineLength = 0;
                 }
-                multiLineText = multiLineText + words[counter] + " ";
+                multiLineText = multiLineText + word + " ";
+                lineLength += word.Length + 1;
             }
             return multiLineText;
         }
