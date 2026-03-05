@@ -16,6 +16,7 @@ namespace PowerDocu.AgentDocumenter
         private readonly string mainDocumentFileName, knowledgeFileName, toolsFileName, agentsFileName, topicsFileName, channelsFileName, settingsFileName, entitiesFileName, variablesFileName;
         private readonly MdDocument mainDocument, knowledgeDocument, toolsDocument, agentsDocument, topicsDocument, channelsDocument, settingsDocument, entitiesDocument, variablesDocument;
         private readonly Dictionary<string, MdDocument> topicsDocuments = new Dictionary<string, MdDocument>();
+        private readonly Dictionary<string, MdDocument> knowledgeDetailDocuments = new Dictionary<string, MdDocument>();
         private readonly DocumentSet<MdDocument> set;
         private MdTable metadataTable;
 
@@ -42,6 +43,11 @@ namespace PowerDocu.AgentDocumenter
             foreach (BotComponent topic in content.agent.GetTopics().OrderBy(o => o.Name).ToList())
             {
                 topicsDocuments.Add(topic.getTopicFileName(), set.CreateMdDocument("Topics/" + ("topic " + topic.getTopicFileName() + " " + content.filename + ".md").Replace(" ", "-")));
+            }
+            foreach (BotComponent ks in content.agent.GetKnowledge().Concat(content.agent.GetFileKnowledge()).OrderBy(k => k.Name))
+            {
+                string key = CharsetHelper.GetSafeName(ks.Name);
+                knowledgeDetailDocuments[key] = set.CreateMdDocument("Knowledge/" + ("knowledge " + key + " " + content.filename + ".md").Replace(" ", "-"));
             }
             channelsDocument = set.CreateMdDocument(channelsFileName);
             settingsDocument = set.CreateMdDocument(settingsFileName);
@@ -173,6 +179,13 @@ namespace PowerDocu.AgentDocumenter
                 kvp.Value.Root.Add(metadataTable);
                 kvp.Value.Root.Add(getNavigationLinks(false));
             }
+            // prepare the common sections for knowledge detail documents (in Knowledge subfolder)
+            foreach (var kvp in knowledgeDetailDocuments)
+            {
+                kvp.Value.Root.Add(new MdHeading($"Agent - {content.filename}", 1));
+                kvp.Value.Root.Add(metadataTable);
+                kvp.Value.Root.Add(getNavigationLinks(false));
+            }
 
             mainDocument.Root.Add(new MdHeading(content.Details, 2));
             mainDocument.Root.Add(new MdHeading(content.Description, 3));
@@ -191,15 +204,17 @@ namespace PowerDocu.AgentDocumenter
                 List<MdTableRow> ksRows = new List<MdTableRow>();
                 foreach (BotComponent ks in knowledgeSources)
                 {
-                    var (sourceKind, skillConfig) = ks.GetKnowledgeSourceDetails();
-                    string site = ks.GetKnowledgeSourceSite();
-                    string details = !string.IsNullOrEmpty(site) ? site : (!string.IsNullOrEmpty(skillConfig) ? skillConfig : "");
-                    ksRows.Add(new MdTableRow(ks.Name, sourceKind ?? "", details));
+                    string key = CharsetHelper.GetSafeName(ks.Name);
+                    string detailLink = "Knowledge/" + ("knowledge " + key + " " + content.filename + ".md").Replace(" ", "-");
+                    string details = content.agent.GetKnowledgeDetailsSummary(ks);
+                    ksRows.Add(new MdTableRow(new MdLinkSpan(ks.Name, detailLink), ks.GetSourceKindDisplayName(), details));
                 }
                 foreach (BotComponent fk in fileKnowledge)
                 {
+                    string key = CharsetHelper.GetSafeName(fk.Name);
+                    string detailLink = "Knowledge/" + ("knowledge " + key + " " + content.filename + ".md").Replace(" ", "-");
                     string mimeType = !string.IsNullOrEmpty(fk.FileDataMimeType) ? $" ({fk.FileDataMimeType})" : "";
-                    ksRows.Add(new MdTableRow(fk.Name, "File" + mimeType, fk.FileDataName ?? ""));
+                    ksRows.Add(new MdTableRow(new MdLinkSpan(fk.Name, detailLink), "File" + mimeType, fk.FileDataName ?? ""));
                 }
                 mainDocument.Root.Add(new MdTable(new MdTableRow(new List<string>() { "Name", "Source Type", "Details" }), ksRows));
             }
@@ -321,21 +336,109 @@ namespace PowerDocu.AgentDocumenter
                 List<MdTableRow> ksRows = new List<MdTableRow>();
                 foreach (BotComponent ks in knowledgeSources)
                 {
-                    var (sourceKind, skillConfig) = ks.GetKnowledgeSourceDetails();
-                    string site = ks.GetKnowledgeSourceSite();
-                    string details = !string.IsNullOrEmpty(site) ? site : (!string.IsNullOrEmpty(skillConfig) ? skillConfig : "");
-                    ksRows.Add(new MdTableRow(ks.Name, sourceKind ?? "", details, ks.Description ?? ""));
+                    string key = CharsetHelper.GetSafeName(ks.Name);
+                    string detailLink = "Knowledge/" + ("knowledge " + key + " " + content.filename + ".md").Replace(" ", "-");
+                    string details = content.agent.GetKnowledgeDetailsSummary(ks);
+                    string officialSource = ks.GetOfficialSourceDisplayName();
+                    string descriptionPreview = !string.IsNullOrEmpty(ks.Description) && ks.Description.Length > 100
+                        ? ks.Description.Substring(0, 100) + "..."
+                        : ks.Description ?? "";
+                    ksRows.Add(new MdTableRow(new MdLinkSpan(ks.Name, detailLink), ks.GetSourceKindDisplayName(), officialSource, details, descriptionPreview));
                 }
                 foreach (BotComponent fk in fileKnowledge)
                 {
+                    string key = CharsetHelper.GetSafeName(fk.Name);
+                    string detailLink = "Knowledge/" + ("knowledge " + key + " " + content.filename + ".md").Replace(" ", "-");
                     string mimeType = !string.IsNullOrEmpty(fk.FileDataMimeType) ? $" ({fk.FileDataMimeType})" : "";
-                    ksRows.Add(new MdTableRow(fk.Name, "File" + mimeType, fk.FileDataName ?? "", fk.Description ?? ""));
+                    string descriptionPreview = !string.IsNullOrEmpty(fk.Description) && fk.Description.Length > 100
+                        ? fk.Description.Substring(0, 100) + "..."
+                        : fk.Description ?? "";
+                    ksRows.Add(new MdTableRow(new MdLinkSpan(fk.Name, detailLink), "File" + mimeType, "", fk.FileDataName ?? "", descriptionPreview));
                 }
-                knowledgeDocument.Root.Add(new MdTable(new MdTableRow(new List<string>() { "Name", "Source Type", "Details", "Description" }), ksRows));
+                knowledgeDocument.Root.Add(new MdTable(new MdTableRow(new List<string>() { "Name", "Source Type", "Official Source", "Details", "Description" }), ksRows));
             }
             else
             {
                 knowledgeDocument.Root.Add(new MdParagraph(new MdTextSpan("No knowledge sources configured.")));
+            }
+
+            // Build individual knowledge detail documents
+            foreach (BotComponent ks in knowledgeSources.OrderBy(k => k.Name))
+            {
+                buildKnowledgeDetailDocument(ks);
+            }
+            foreach (BotComponent fk in fileKnowledge.OrderBy(k => k.Name))
+            {
+                buildKnowledgeDetailDocument(fk);
+            }
+        }
+
+        private void buildKnowledgeDetailDocument(BotComponent knowledge)
+        {
+            string key = CharsetHelper.GetSafeName(knowledge.Name);
+            if (!knowledgeDetailDocuments.TryGetValue(key, out MdDocument doc)) return;
+
+            doc.Root.Add(new MdHeading(knowledge.Name, 2));
+
+            // Properties table
+            List<MdTableRow> propRows = new List<MdTableRow>();
+            propRows.Add(new MdTableRow("Name", knowledge.Name));
+            if (knowledge.ComponentType == 16)
+            {
+                propRows.Add(new MdTableRow("Source Type", knowledge.GetSourceKindDisplayName()));
+                string officialSource = knowledge.GetOfficialSourceDisplayName();
+                if (!string.IsNullOrEmpty(officialSource))
+                    propRows.Add(new MdTableRow("Official Source", officialSource));
+                string site = knowledge.GetKnowledgeSourceSite();
+                if (!string.IsNullOrEmpty(site))
+                    propRows.Add(new MdTableRow("URL", site));
+            }
+            else if (knowledge.ComponentType == 14)
+            {
+                string mimeType = !string.IsNullOrEmpty(knowledge.FileDataMimeType) ? $" ({knowledge.FileDataMimeType})" : "";
+                propRows.Add(new MdTableRow("Source Type", "File" + mimeType));
+                if (!string.IsNullOrEmpty(knowledge.FileDataName))
+                    propRows.Add(new MdTableRow("File Name", knowledge.FileDataName));
+            }
+            doc.Root.Add(new MdTable(new MdTableRow(new List<string>() { "Property", "Value" }), propRows));
+
+            // Description
+            if (!string.IsNullOrEmpty(knowledge.Description))
+            {
+                doc.Root.Add(new MdHeading("Description", 3));
+                AddParagraphsWithLinebreaks(doc, knowledge.Description);
+            }
+
+            // Dataverse-specific: Selected Tables and Synonyms
+            if (knowledge.ComponentType == 16 && knowledge.GetSourceKindDisplayName() == "Dataverse")
+            {
+                var tables = content.agent.GetDataverseTablesForKnowledge(knowledge);
+                if (tables.Count > 0)
+                {
+                    doc.Root.Add(new MdHeading("Selected Tables", 3));
+                    List<MdTableRow> tableRows = new List<MdTableRow>();
+                    foreach (var table in tables.OrderBy(t => t.Name))
+                    {
+                        tableRows.Add(new MdTableRow(table.Name, table.EntityLogicalName));
+                    }
+                    doc.Root.Add(new MdTable(new MdTableRow(new List<string>() { "Table Name", "Logical Name" }), tableRows));
+
+                    // Synonyms/Glossary per table
+                    foreach (var table in tables.OrderBy(t => t.Name))
+                    {
+                        var synonyms = content.agent.GetSynonymsForEntity(table);
+                        if (synonyms.Count > 0)
+                        {
+                            doc.Root.Add(new MdHeading($"Glossary: {table.Name}", 3));
+                            List<MdTableRow> synRows = new List<MdTableRow>();
+                            foreach (var syn in synonyms.OrderBy(s => s.ColumnLogicalName))
+                            {
+                                synRows.Add(new MdTableRow(syn.ColumnLogicalName, syn.Description ?? ""));
+                            }
+                            doc.Root.Add(new MdTable(new MdTableRow(new List<string>() { "Column", "Description" }), synRows));
+                        }
+                    }
+                }
             }
         }
 

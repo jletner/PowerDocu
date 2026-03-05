@@ -25,6 +25,7 @@ namespace PowerDocu.AgentDocumenter
             body = mainPart.Document.Body;
             PrepareDocument(!String.IsNullOrEmpty(template));
             addAgentOverview();
+            addAgentKnowledge();
             addAgentTools();
             addAgentEntities();
             addAgentVariables();
@@ -113,10 +114,8 @@ namespace PowerDocu.AgentDocumenter
                 knowledgeTable.Append(CreateHeaderRow(new Text("Name"), new Text("Source Type"), new Text("Details")));
                 foreach (BotComponent ks in knowledgeSources)
                 {
-                    var (sourceKind, skillConfig) = ks.GetKnowledgeSourceDetails();
-                    string site = ks.GetKnowledgeSourceSite();
-                    string details = !string.IsNullOrEmpty(site) ? site : (!string.IsNullOrEmpty(skillConfig) ? skillConfig : "");
-                    knowledgeTable.Append(CreateRow(new Text(ks.Name), new Text(sourceKind ?? ""), new Text(details)));
+                    string details = content.agent.GetKnowledgeDetailsSummary(ks);
+                    knowledgeTable.Append(CreateRow(new Text(ks.Name), new Text(ks.GetSourceKindDisplayName()), new Text(details)));
                 }
                 foreach (BotComponent fk in fileKnowledge)
                 {
@@ -203,6 +202,130 @@ namespace PowerDocu.AgentDocumenter
                 body.Append(promptsTable);
             }
             body.AppendChild(new Paragraph(new Run(new Break())));
+        }
+
+        private void addAgentKnowledge()
+        {
+            var knowledgeSources = content.agent.GetKnowledge();
+            var fileKnowledge = content.agent.GetFileKnowledge();
+            if (knowledgeSources.Count == 0 && fileKnowledge.Count == 0) return;
+
+            Paragraph para = body.AppendChild(new Paragraph());
+            Run run = para.AppendChild(new Run());
+            run.AppendChild(new Text(content.Knowledge));
+            ApplyStyleToParagraph("Heading1", para);
+
+            // Overview table
+            Table overviewTable = CreateTable();
+            overviewTable.Append(CreateHeaderRow(new Text("Name"), new Text("Source Type"), new Text("Official Source"), new Text("Details")));
+            foreach (BotComponent ks in knowledgeSources.OrderBy(k => k.Name))
+            {
+                string details = content.agent.GetKnowledgeDetailsSummary(ks);
+                string officialSource = ks.GetOfficialSourceDisplayName();
+                overviewTable.Append(CreateRow(new Text(ks.Name), new Text(ks.GetSourceKindDisplayName()), new Text(officialSource), new Text(details)));
+            }
+            foreach (BotComponent fk in fileKnowledge.OrderBy(k => k.Name))
+            {
+                string mimeType = !string.IsNullOrEmpty(fk.FileDataMimeType) ? $" ({fk.FileDataMimeType})" : "";
+                overviewTable.Append(CreateRow(new Text(fk.Name), new Text("File" + mimeType), new Text(""), new Text(fk.FileDataName ?? "")));
+            }
+            body.Append(overviewTable);
+            body.AppendChild(new Paragraph(new Run(new Break())));
+
+            // Detail per knowledge source
+            foreach (BotComponent ks in knowledgeSources.OrderBy(k => k.Name))
+            {
+                addKnowledgeSourceDetail(ks);
+            }
+            foreach (BotComponent fk in fileKnowledge.OrderBy(k => k.Name))
+            {
+                addKnowledgeSourceDetail(fk);
+            }
+        }
+
+        private void addKnowledgeSourceDetail(BotComponent knowledge)
+        {
+            Paragraph para = body.AppendChild(new Paragraph());
+            Run run = para.AppendChild(new Run());
+            run.AppendChild(new Text(knowledge.Name));
+            ApplyStyleToParagraph("Heading2", para);
+
+            // Properties table
+            Table table = CreateTable();
+            table.Append(CreateRow(new Text("Name"), new Text(knowledge.Name)));
+            if (knowledge.ComponentType == 16)
+            {
+                table.Append(CreateRow(new Text("Source Type"), new Text(knowledge.GetSourceKindDisplayName())));
+                string officialSource = knowledge.GetOfficialSourceDisplayName();
+                if (!string.IsNullOrEmpty(officialSource))
+                    table.Append(CreateRow(new Text("Official Source"), new Text(officialSource)));
+                string site = knowledge.GetKnowledgeSourceSite();
+                if (!string.IsNullOrEmpty(site))
+                    table.Append(CreateRow(new Text("URL"), new Text(site)));
+            }
+            else if (knowledge.ComponentType == 14)
+            {
+                string mimeType = !string.IsNullOrEmpty(knowledge.FileDataMimeType) ? $" ({knowledge.FileDataMimeType})" : "";
+                table.Append(CreateRow(new Text("Source Type"), new Text("File" + mimeType)));
+                if (!string.IsNullOrEmpty(knowledge.FileDataName))
+                    table.Append(CreateRow(new Text("File Name"), new Text(knowledge.FileDataName)));
+            }
+            body.Append(table);
+            body.AppendChild(new Paragraph(new Run(new Break())));
+
+            // Description
+            if (!string.IsNullOrEmpty(knowledge.Description))
+            {
+                para = body.AppendChild(new Paragraph());
+                run = para.AppendChild(new Run());
+                run.AppendChild(new Text("Description"));
+                ApplyStyleToParagraph("Heading3", para);
+                body.AppendChild(new Paragraph(CreateRunWithLinebreaks(knowledge.Description)));
+            }
+
+            // Dataverse-specific: Selected Tables and Synonyms
+            if (knowledge.ComponentType == 16 && knowledge.GetSourceKindDisplayName() == "Dataverse")
+            {
+                var tables = content.agent.GetDataverseTablesForKnowledge(knowledge);
+                if (tables.Count > 0)
+                {
+                    para = body.AppendChild(new Paragraph());
+                    run = para.AppendChild(new Run());
+                    run.AppendChild(new Text("Selected Tables"));
+                    ApplyStyleToParagraph("Heading3", para);
+
+                    Table tablesTable = CreateTable();
+                    tablesTable.Append(CreateHeaderRow(new Text("Table Name"), new Text("Logical Name")));
+                    foreach (var dvTable in tables.OrderBy(t => t.Name))
+                    {
+                        tablesTable.Append(CreateRow(new Text(dvTable.Name), new Text(dvTable.EntityLogicalName)));
+                    }
+                    body.Append(tablesTable);
+                    body.AppendChild(new Paragraph(new Run(new Break())));
+
+                    // Synonyms/Glossary per table
+                    foreach (var dvTable in tables.OrderBy(t => t.Name))
+                    {
+                        var synonyms = content.agent.GetSynonymsForEntity(dvTable);
+                        if (synonyms.Count > 0)
+                        {
+                            para = body.AppendChild(new Paragraph());
+                            run = para.AppendChild(new Run());
+                            run.AppendChild(new Text($"Glossary: {dvTable.Name}"));
+                            ApplyStyleToParagraph("Heading3", para);
+
+                            Table synTable = CreateTable();
+                            synTable.Append(CreateHeaderRow(new Text("Column"), new Text("Description")));
+                            foreach (var syn in synonyms.OrderBy(s => s.ColumnLogicalName))
+                            {
+                                synTable.Append(CreateRow(new Text(syn.ColumnLogicalName), new Text(syn.Description ?? "")));
+                            }
+                            body.Append(synTable);
+                            body.AppendChild(new Paragraph(new Run(new Break())));
+                        }
+                    }
+                }
+            }
         }
 
         private void addAgentTopicsOverview()

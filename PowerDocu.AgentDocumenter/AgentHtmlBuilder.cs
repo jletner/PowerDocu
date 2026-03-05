@@ -13,6 +13,7 @@ namespace PowerDocu.AgentDocumenter
         private readonly AgentDocumentationContent content;
         private readonly string mainFileName, knowledgeFileName, toolsFileName, agentsFileName, topicsFileName, channelsFileName, settingsFileName, entitiesFileName, variablesFileName;
         private readonly Dictionary<string, string> topicFileNames = new Dictionary<string, string>();
+        private readonly Dictionary<string, string> knowledgeDetailFileNames = new Dictionary<string, string>();
 
         public AgentHtmlBuilder(AgentDocumentationContent contentdocumentation)
         {
@@ -33,6 +34,10 @@ namespace PowerDocu.AgentDocumenter
             foreach (BotComponent topic in content.agent.GetTopics().OrderBy(o => o.Name).ToList())
             {
                 topicFileNames[topic.Name] = ("topic-" + CharsetHelper.GetSafeName(topic.Name) + "-" + content.filename + ".html").Replace(" ", "-");
+            }
+            foreach (BotComponent ks in content.agent.GetKnowledge().Concat(content.agent.GetFileKnowledge()).OrderBy(k => k.Name))
+            {
+                knowledgeDetailFileNames[ks.Name] = ("knowledge-" + CharsetHelper.GetSafeName(ks.Name) + "-" + content.filename + ".html").Replace(" ", "-");
             }
 
             addAgentOverview();
@@ -112,15 +117,15 @@ namespace PowerDocu.AgentDocumenter
                 body.Append(TableStart("Name", "Source Type", "Details"));
                 foreach (BotComponent ks in knowledgeSources)
                 {
-                    var (sourceKind, skillConfig) = ks.GetKnowledgeSourceDetails();
-                    string site = ks.GetKnowledgeSourceSite();
-                    string details = !string.IsNullOrEmpty(site) ? site : (!string.IsNullOrEmpty(skillConfig) ? skillConfig : "");
-                    body.Append(TableRow(ks.Name, sourceKind ?? "", details));
+                    string detailFile = knowledgeDetailFileNames.GetValueOrDefault(ks.Name, "#");
+                    string details = content.agent.GetKnowledgeDetailsSummary(ks);
+                    body.Append(TableRowRaw(Link(ks.Name, "Knowledge/" + detailFile), Encode(ks.GetSourceKindDisplayName()), Encode(details)));
                 }
                 foreach (BotComponent fk in fileKnowledge)
                 {
+                    string detailFile = knowledgeDetailFileNames.GetValueOrDefault(fk.Name, "#");
                     string mimeType = !string.IsNullOrEmpty(fk.FileDataMimeType) ? $" ({fk.FileDataMimeType})" : "";
-                    body.Append(TableRow(fk.Name, "File" + mimeType, fk.FileDataName ?? ""));
+                    body.Append(TableRowRaw(Link(fk.Name, "Knowledge/" + detailFile), Encode("File" + mimeType), Encode(fk.FileDataName ?? "")));
                 }
                 body.AppendLine(TableEnd());
             }
@@ -201,18 +206,35 @@ namespace PowerDocu.AgentDocumenter
             var fileKnowledge = content.agent.GetFileKnowledge();
             if (knowledgeSources.Count > 0 || fileKnowledge.Count > 0)
             {
-                body.Append(TableStart("Name", "Source Type", "Details", "Description"));
+                body.Append(TableStart("Name", "Source Type", "Official Source", "Details", "Description"));
                 foreach (BotComponent ks in knowledgeSources)
                 {
-                    var (sourceKind, skillConfig) = ks.GetKnowledgeSourceDetails();
-                    string site = ks.GetKnowledgeSourceSite();
-                    string details = !string.IsNullOrEmpty(site) ? site : (!string.IsNullOrEmpty(skillConfig) ? skillConfig : "");
-                    body.Append(TableRow(ks.Name, sourceKind ?? "", details, ks.Description ?? ""));
+                    string detailFile = knowledgeDetailFileNames.GetValueOrDefault(ks.Name, "#");
+                    string details = content.agent.GetKnowledgeDetailsSummary(ks);
+                    string officialSource = ks.GetOfficialSourceDisplayName();
+                    string descriptionPreview = !string.IsNullOrEmpty(ks.Description) && ks.Description.Length > 100
+                        ? ks.Description.Substring(0, 100) + "..."
+                        : ks.Description ?? "";
+                    body.Append(TableRowRaw(
+                        Link(ks.Name, "Knowledge/" + detailFile),
+                        Encode(ks.GetSourceKindDisplayName()),
+                        Encode(officialSource),
+                        Encode(details),
+                        Encode(descriptionPreview)));
                 }
                 foreach (BotComponent fk in fileKnowledge)
                 {
+                    string detailFile = knowledgeDetailFileNames.GetValueOrDefault(fk.Name, "#");
                     string mimeType = !string.IsNullOrEmpty(fk.FileDataMimeType) ? $" ({fk.FileDataMimeType})" : "";
-                    body.Append(TableRow(fk.Name, "File" + mimeType, fk.FileDataName ?? "", fk.Description ?? ""));
+                    string descriptionPreview = !string.IsNullOrEmpty(fk.Description) && fk.Description.Length > 100
+                        ? fk.Description.Substring(0, 100) + "..."
+                        : fk.Description ?? "";
+                    body.Append(TableRowRaw(
+                        Link(fk.Name, "Knowledge/" + detailFile),
+                        Encode("File" + mimeType),
+                        Encode(""),
+                        Encode(fk.FileDataName ?? ""),
+                        Encode(descriptionPreview)));
                 }
                 body.AppendLine(TableEnd());
             }
@@ -223,6 +245,90 @@ namespace PowerDocu.AgentDocumenter
 
             SaveHtmlFile(Path.Combine(content.folderPath, knowledgeFileName),
                 WrapInHtmlPage($"Knowledge - {content.filename}", body.ToString(), getNavigationHtml()));
+
+            // Build individual knowledge detail pages
+            Directory.CreateDirectory(Path.Combine(content.folderPath, "Knowledge"));
+            foreach (BotComponent ks in knowledgeSources.OrderBy(k => k.Name))
+            {
+                buildKnowledgeDetailPage(ks);
+            }
+            foreach (BotComponent fk in fileKnowledge.OrderBy(k => k.Name))
+            {
+                buildKnowledgeDetailPage(fk);
+            }
+        }
+
+        private void buildKnowledgeDetailPage(BotComponent knowledge)
+        {
+            StringBuilder body = new StringBuilder();
+            body.AppendLine(Heading(1, $"Agent - {content.filename}"));
+            body.AppendLine(buildMetadataTable(true));
+            body.AppendLine(Heading(2, knowledge.Name));
+
+            // Properties table
+            body.Append(TableStart("Property", "Value"));
+            body.Append(TableRow("Name", knowledge.Name));
+            if (knowledge.ComponentType == 16)
+            {
+                body.Append(TableRow("Source Type", knowledge.GetSourceKindDisplayName()));
+                string officialSource = knowledge.GetOfficialSourceDisplayName();
+                if (!string.IsNullOrEmpty(officialSource))
+                    body.Append(TableRow("Official Source", officialSource));
+                string site = knowledge.GetKnowledgeSourceSite();
+                if (!string.IsNullOrEmpty(site))
+                    body.Append(TableRow("URL", site));
+            }
+            else if (knowledge.ComponentType == 14)
+            {
+                string mimeType = !string.IsNullOrEmpty(knowledge.FileDataMimeType) ? $" ({knowledge.FileDataMimeType})" : "";
+                body.Append(TableRow("Source Type", "File" + mimeType));
+                if (!string.IsNullOrEmpty(knowledge.FileDataName))
+                    body.Append(TableRow("File Name", knowledge.FileDataName));
+            }
+            body.AppendLine(TableEnd());
+
+            // Description
+            if (!string.IsNullOrEmpty(knowledge.Description))
+            {
+                body.AppendLine(Heading(3, "Description"));
+                body.AppendLine(ParagraphWithLinebreaks(knowledge.Description));
+            }
+
+            // Dataverse-specific: Selected Tables and Synonyms
+            if (knowledge.ComponentType == 16 && knowledge.GetSourceKindDisplayName() == "Dataverse")
+            {
+                var tables = content.agent.GetDataverseTablesForKnowledge(knowledge);
+                if (tables.Count > 0)
+                {
+                    body.AppendLine(Heading(3, "Selected Tables"));
+                    body.Append(TableStart("Table Name", "Logical Name"));
+                    foreach (var table in tables.OrderBy(t => t.Name))
+                    {
+                        body.Append(TableRow(table.Name, table.EntityLogicalName));
+                    }
+                    body.AppendLine(TableEnd());
+
+                    // Synonyms/Glossary per table
+                    foreach (var table in tables.OrderBy(t => t.Name))
+                    {
+                        var synonyms = content.agent.GetSynonymsForEntity(table);
+                        if (synonyms.Count > 0)
+                        {
+                            body.AppendLine(Heading(3, $"Glossary: {table.Name}"));
+                            body.Append(TableStart("Column", "Description"));
+                            foreach (var syn in synonyms.OrderBy(s => s.ColumnLogicalName))
+                            {
+                                body.Append(TableRow(syn.ColumnLogicalName, syn.Description ?? ""));
+                            }
+                            body.AppendLine(TableEnd());
+                        }
+                    }
+                }
+            }
+
+            string detailFile = knowledgeDetailFileNames.GetValueOrDefault(knowledge.Name, knowledge.Name + ".html");
+            SaveHtmlFile(Path.Combine(content.folderPath, "Knowledge", detailFile),
+                WrapInHtmlPage($"Knowledge: {knowledge.Name}", body.ToString(), getNavigationHtml(true), "../style.css"));
         }
 
         private void addAgentTools()
