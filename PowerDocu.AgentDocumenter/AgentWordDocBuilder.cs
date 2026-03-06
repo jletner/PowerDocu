@@ -134,12 +134,12 @@ namespace PowerDocu.AgentDocumenter
             run = para.AppendChild(new Run());
             run.AppendChild(new Text(content.Tools));
             ApplyStyleToParagraph("Heading3", para);
-            var tools = content.agent.GetTools();
-            if (tools.Count > 0)
+            var overviewTools = content.agent.GetAllToolInfos();
+            if (overviewTools.Count > 0)
             {
-                foreach (BotComponent tool in tools.OrderBy(t => t.Name))
+                foreach (AgentToolInfo tool in overviewTools)
                 {
-                    body.AppendChild(new Paragraph(new Run(new Text(tool.Name))));
+                    body.AppendChild(new Paragraph(new Run(new Text($"{tool.Name} ({tool.ToolType})"))));
                 }
             }
             else
@@ -476,47 +476,60 @@ namespace PowerDocu.AgentDocumenter
             run.AppendChild(new Text(content.Tools));
             ApplyStyleToParagraph("Heading1", para);
 
-            var tools = content.agent.GetTools();
+            var tools = content.agent.GetAllToolInfos();
             if (tools.Count == 0)
             {
                 body.AppendChild(new Paragraph(new Run(new Text("No tools configured."))));
                 return;
             }
 
-            foreach (BotComponent tool in tools.OrderBy(t => t.Name))
+            // Summary table matching Copilot Studio UI columns
+            Table summaryTable = CreateTable();
+            summaryTable.Append(CreateHeaderRow(new Text("Name"), new Text("Type"), new Text("Available to"), new Text("Trigger"), new Text("Enabled")));
+            foreach (AgentToolInfo tool in tools)
+            {
+                summaryTable.Append(CreateRow(
+                    new Text(tool.Name),
+                    new Text(tool.ToolType),
+                    new Text(tool.AvailableTo ?? ""),
+                    new Text(tool.Trigger ?? ""),
+                    new Text(tool.Enabled ? "On" : "Off")));
+            }
+            body.Append(summaryTable);
+            body.AppendChild(new Paragraph(new Run(new Break())));
+
+            // Detail per tool
+            foreach (AgentToolInfo tool in tools)
             {
                 para = body.AppendChild(new Paragraph());
                 run = para.AppendChild(new Run());
                 run.AppendChild(new Text("Tool: " + tool.Name));
                 ApplyStyleToParagraph("Heading2", para);
 
-                var (actionKind, connectionRef, operationId, flowId, modelDisplayName, inputs, outputs) = tool.GetToolDetails();
-
+                // Details table
                 Table table = CreateTable();
                 table.Append(CreateRow(new Text("Name"), new Text(tool.Name)));
-                if (!string.IsNullOrEmpty(modelDisplayName))
-                    table.Append(CreateRow(new Text("Display Name"), new Text(modelDisplayName)));
                 if (!string.IsNullOrEmpty(tool.Description))
                     table.Append(CreateRow(new Text("Description"), new Text(tool.Description)));
-
-                string actionTypeDisplay = actionKind switch
-                {
-                    "InvokeConnectorTaskAction" => "Connector",
-                    "InvokeFlowTaskAction" => "Power Automate Flow",
-                    _ => actionKind
-                };
-                table.Append(CreateRow(new Text("Action Type"), new Text(actionTypeDisplay)));
-
-                if (!string.IsNullOrEmpty(connectionRef))
-                    table.Append(CreateRow(new Text("Connection Reference"), new Text(connectionRef)));
-                if (!string.IsNullOrEmpty(operationId))
-                    table.Append(CreateRow(new Text("Operation"), new Text(operationId)));
-                if (!string.IsNullOrEmpty(flowId))
-                    table.Append(CreateRow(new Text("Flow ID"), new Text(flowId)));
+                table.Append(CreateRow(new Text("Type"), new Text(tool.ToolType)));
+                table.Append(CreateRow(new Text("Available to"), new Text(tool.AvailableTo ?? "")));
+                table.Append(CreateRow(new Text("Trigger"), new Text(tool.Trigger ?? "")));
+                table.Append(CreateRow(new Text("Enabled"), new Text(tool.Enabled ? "On" : "Off")));
+                if (!string.IsNullOrEmpty(tool.ConnectionReference))
+                    table.Append(CreateRow(new Text("Connection Reference"), new Text(tool.ConnectionReference)));
+                if (!string.IsNullOrEmpty(tool.OperationId))
+                    table.Append(CreateRow(new Text("Operation"), new Text(tool.OperationId)));
+                if (!string.IsNullOrEmpty(tool.FlowId))
+                    table.Append(CreateRow(new Text("Flow ID"), new Text(tool.FlowId)));
+                if (!string.IsNullOrEmpty(tool.AgentFlowName))
+                    table.Append(CreateRow(new Text("Agent Flow"), new Text(tool.AgentFlowName)));
+                if (!string.IsNullOrEmpty(tool.ModelParameters))
+                    table.Append(CreateRow(new Text("Model Parameters"), new Text(tool.ModelParameters)));
                 body.Append(table);
                 body.AppendChild(new Paragraph(new Run(new Break())));
 
-                if (inputs.Count > 0)
+                // Inputs
+                if (tool.Inputs.Count > 0)
                 {
                     para = body.AppendChild(new Paragraph());
                     run = para.AppendChild(new Run());
@@ -524,16 +537,21 @@ namespace PowerDocu.AgentDocumenter
                     ApplyStyleToParagraph("Heading3", para);
 
                     Table inputTable = CreateTable();
-                    inputTable.Append(CreateHeaderRow(new Text("Input")));
-                    foreach (string input in inputs)
+                    inputTable.Append(CreateHeaderRow(new Text("Input name"), new Text("Fill using"), new Text("Type"), new Text("Description")));
+                    foreach (var input in tool.Inputs)
                     {
-                        inputTable.Append(CreateRow(new Text(input)));
+                        inputTable.Append(CreateRow(
+                            new Text(input.Name + (input.IsRequired ? " *" : "")),
+                            new Text(input.FillUsing ?? ""),
+                            new Text(input.DataType ?? ""),
+                            new Text(input.Description ?? "")));
                     }
                     body.Append(inputTable);
                     body.AppendChild(new Paragraph(new Run(new Break())));
                 }
 
-                if (outputs.Count > 0)
+                // Outputs
+                if (tool.Outputs.Count > 0)
                 {
                     para = body.AppendChild(new Paragraph());
                     run = para.AppendChild(new Run());
@@ -541,12 +559,54 @@ namespace PowerDocu.AgentDocumenter
                     ApplyStyleToParagraph("Heading3", para);
 
                     Table outputTable = CreateTable();
-                    outputTable.Append(CreateHeaderRow(new Text("Output")));
-                    foreach (string output in outputs)
+                    outputTable.Append(CreateHeaderRow(new Text("Output name"), new Text("Type"), new Text("Description")));
+                    foreach (var output in tool.Outputs)
                     {
-                        outputTable.Append(CreateRow(new Text(output)));
+                        outputTable.Append(CreateRow(
+                            new Text(output.Name),
+                            new Text(output.DataType ?? ""),
+                            new Text(output.Description ?? "")));
                     }
                     body.Append(outputTable);
+                    body.AppendChild(new Paragraph(new Run(new Break())));
+                }
+
+                // Completion
+                if (!string.IsNullOrEmpty(tool.ResponseActivity) || !string.IsNullOrEmpty(tool.OutputMode))
+                {
+                    para = body.AppendChild(new Paragraph());
+                    run = para.AppendChild(new Run());
+                    run.AppendChild(new Text("Completion"));
+                    ApplyStyleToParagraph("Heading3", para);
+
+                    Table completionTable = CreateTable();
+                    if (!string.IsNullOrEmpty(tool.ResponseActivity))
+                        completionTable.Append(CreateRow(new Text("After running"), new Text("Send specific response")));
+                    if (!string.IsNullOrEmpty(tool.ResponseMode))
+                        completionTable.Append(CreateRow(new Text("Response Mode"), new Text(tool.ResponseMode)));
+                    if (!string.IsNullOrEmpty(tool.OutputMode))
+                        completionTable.Append(CreateRow(new Text("Output Mode"), new Text(tool.OutputMode)));
+                    body.Append(completionTable);
+
+                    if (!string.IsNullOrEmpty(tool.ResponseActivity))
+                    {
+                        para = body.AppendChild(new Paragraph());
+                        run = para.AppendChild(new Run());
+                        run.AppendChild(new Text("Message to display:"));
+                        ApplyStyleToParagraph("Heading4", para);
+                        body.AppendChild(new Paragraph(new Run(new Text(tool.ResponseActivity))));
+                    }
+                    body.AppendChild(new Paragraph(new Run(new Break())));
+                }
+
+                // Prompt text (for prompt tools)
+                if (!string.IsNullOrEmpty(tool.PromptText))
+                {
+                    para = body.AppendChild(new Paragraph());
+                    run = para.AppendChild(new Run());
+                    run.AppendChild(new Text("Prompt"));
+                    ApplyStyleToParagraph("Heading3", para);
+                    body.AppendChild(new Paragraph(new Run(new Text(tool.PromptText))));
                     body.AppendChild(new Paragraph(new Run(new Break())));
                 }
             }

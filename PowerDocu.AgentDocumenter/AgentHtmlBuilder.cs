@@ -135,13 +135,13 @@ namespace PowerDocu.AgentDocumenter
             }
 
             body.AppendLine(Heading(3, content.Tools));
-            var overviewTools = content.agent.GetTools();
+            var overviewTools = content.agent.GetAllToolInfos();
             if (overviewTools.Count > 0)
             {
                 body.AppendLine(BulletListStart());
-                foreach (BotComponent tool in overviewTools.OrderBy(t => t.Name))
+                foreach (AgentToolInfo tool in overviewTools)
                 {
-                    body.AppendLine(BulletItem(tool.Name));
+                    body.AppendLine(BulletItem($"{tool.Name} ({tool.ToolType})"));
                 }
                 body.AppendLine(BulletListEnd());
             }
@@ -338,73 +338,100 @@ namespace PowerDocu.AgentDocumenter
             body.AppendLine(buildMetadataTable());
             body.AppendLine(Heading(2, content.Tools));
 
-            var tools = content.agent.GetTools();
+            var tools = content.agent.GetAllToolInfos();
             if (tools.Count == 0)
             {
                 body.AppendLine(Paragraph("No tools configured."));
             }
             else
             {
-                // Summary table
-                body.Append(TableStart("Name", "Action Type", "Connection", "Operation"));
-                foreach (BotComponent tool in tools.OrderBy(t => t.Name))
+                // Summary table matching Copilot Studio UI columns
+                body.Append(TableStart("Name", "Type", "Available to", "Trigger", "Enabled"));
+                foreach (AgentToolInfo tool in tools)
                 {
-                    var (actionKind, connectionRef, operationId, flowId, modelDisplayName, inputs, outputs) = tool.GetToolDetails();
-                    string actionTypeDisplay = actionKind switch
-                    {
-                        "InvokeConnectorTaskAction" => "Connector",
-                        "InvokeFlowTaskAction" => "Power Automate Flow",
-                        _ => actionKind
-                    };
-                    body.Append(TableRow(tool.Name, actionTypeDisplay, connectionRef ?? "", operationId ?? ""));
+                    body.Append(TableRow(tool.Name, tool.ToolType, tool.AvailableTo ?? "", tool.Trigger ?? "", tool.Enabled ? "On" : "Off"));
                 }
                 body.AppendLine(TableEnd());
 
                 // Detail per tool
-                foreach (BotComponent tool in tools.OrderBy(t => t.Name))
+                foreach (AgentToolInfo tool in tools)
                 {
                     body.AppendLine(Heading(3, tool.Name));
-                    var (actionKind, connectionRef, operationId, flowId, modelDisplayName, inputs, outputs) = tool.GetToolDetails();
+
+                    // Details section
+                    body.AppendLine(Heading(4, "Details"));
                     body.Append(TableStart("Property", "Value"));
-                    if (!string.IsNullOrEmpty(modelDisplayName))
-                        body.Append(TableRow("Display Name", modelDisplayName));
+                    body.Append(TableRow("Name", tool.Name));
                     if (!string.IsNullOrEmpty(tool.Description))
                         body.Append(TableRow("Description", tool.Description));
-                    string actionTypeDisplay = actionKind switch
-                    {
-                        "InvokeConnectorTaskAction" => "Connector",
-                        "InvokeFlowTaskAction" => "Power Automate Flow",
-                        _ => actionKind
-                    };
-                    body.Append(TableRow("Action Type", actionTypeDisplay));
-                    if (!string.IsNullOrEmpty(connectionRef))
-                        body.Append(TableRow("Connection Reference", connectionRef));
-                    if (!string.IsNullOrEmpty(operationId))
-                        body.Append(TableRow("Operation", operationId));
-                    if (!string.IsNullOrEmpty(flowId))
-                        body.Append(TableRow("Flow ID", flowId));
+                    body.Append(TableRow("Type", tool.ToolType));
+                    body.Append(TableRow("Available to", tool.AvailableTo ?? ""));
+                    body.Append(TableRow("Trigger", tool.Trigger ?? ""));
+                    body.Append(TableRow("Enabled", tool.Enabled ? "On" : "Off"));
+                    if (!string.IsNullOrEmpty(tool.ConnectionReference))
+                        body.Append(TableRow("Connection Reference", tool.ConnectionReference));
+                    if (!string.IsNullOrEmpty(tool.OperationId))
+                        body.Append(TableRow("Operation", tool.OperationId));
+                    if (!string.IsNullOrEmpty(tool.FlowId))
+                        body.Append(TableRow("Flow ID", tool.FlowId));
+                    if (!string.IsNullOrEmpty(tool.AgentFlowName))
+                        body.Append(TableRow("Agent Flow", tool.AgentFlowName));
+                    if (!string.IsNullOrEmpty(tool.ModelParameters))
+                        body.Append(TableRow("Model Parameters", tool.ModelParameters));
                     body.AppendLine(TableEnd());
 
-                    if (inputs.Count > 0)
+                    // Inputs
+                    if (tool.Inputs.Count > 0)
                     {
                         body.AppendLine(Heading(4, "Inputs"));
-                        body.Append(TableStart("Input"));
-                        foreach (string input in inputs)
+                        body.Append(TableStart("Input name", "Fill using", "Type", "Description"));
+                        foreach (var input in tool.Inputs)
                         {
-                            body.Append(TableRow(input));
+                            body.Append(TableRow(
+                                input.Name + (input.IsRequired ? " *" : ""),
+                                input.FillUsing ?? "",
+                                input.DataType ?? "",
+                                input.Description ?? ""));
                         }
                         body.AppendLine(TableEnd());
                     }
 
-                    if (outputs.Count > 0)
+                    // Outputs
+                    if (tool.Outputs.Count > 0)
                     {
                         body.AppendLine(Heading(4, "Outputs"));
-                        body.Append(TableStart("Output"));
-                        foreach (string output in outputs)
+                        body.Append(TableStart("Output name", "Type", "Description"));
+                        foreach (var output in tool.Outputs)
                         {
-                            body.Append(TableRow(output));
+                            body.Append(TableRow(output.Name, output.DataType ?? "", output.Description ?? ""));
                         }
                         body.AppendLine(TableEnd());
+                    }
+
+                    // Completion
+                    if (!string.IsNullOrEmpty(tool.ResponseActivity) || !string.IsNullOrEmpty(tool.OutputMode))
+                    {
+                        body.AppendLine(Heading(4, "Completion"));
+                        body.Append(TableStart("Property", "Value"));
+                        if (!string.IsNullOrEmpty(tool.ResponseActivity))
+                            body.Append(TableRow("After running", "Send specific response"));
+                        if (!string.IsNullOrEmpty(tool.ResponseMode))
+                            body.Append(TableRow("Response Mode", tool.ResponseMode));
+                        if (!string.IsNullOrEmpty(tool.OutputMode))
+                            body.Append(TableRow("Output Mode", tool.OutputMode));
+                        body.AppendLine(TableEnd());
+                        if (!string.IsNullOrEmpty(tool.ResponseActivity))
+                        {
+                            body.AppendLine(Heading(5, "Message to display"));
+                            body.AppendLine(Paragraph(tool.ResponseActivity));
+                        }
+                    }
+
+                    // Prompt text (for prompt tools)
+                    if (!string.IsNullOrEmpty(tool.PromptText))
+                    {
+                        body.AppendLine(Heading(4, "Prompt"));
+                        body.AppendLine(Paragraph(tool.PromptText));
                     }
                 }
             }

@@ -223,13 +223,13 @@ namespace PowerDocu.AgentDocumenter
                 mainDocument.Root.Add(new MdParagraph(new MdTextSpan("No knowledge sources configured.")));
             }
             mainDocument.Root.Add(new MdHeading(content.Tools, 3));
-            var overviewTools = content.agent.GetTools();
+            var overviewTools = content.agent.GetAllToolInfos();
             if (overviewTools.Count > 0)
             {
                 List<MdListItem> toolsList = new List<MdListItem>();
-                foreach (BotComponent tool in overviewTools.OrderBy(t => t.Name))
+                foreach (AgentToolInfo tool in overviewTools)
                 {
-                    toolsList.Add(new MdListItem(tool.Name));
+                    toolsList.Add(new MdListItem($"{tool.Name} ({tool.ToolType})"));
                 }
                 mainDocument.Root.Add(new MdBulletList(toolsList));
             }
@@ -553,75 +553,108 @@ namespace PowerDocu.AgentDocumenter
         {
             toolsDocument.Root.Add(new MdHeading(content.Tools, 2));
 
-            var tools = content.agent.GetTools();
+            var tools = content.agent.GetAllToolInfos();
             if (tools.Count == 0)
             {
                 toolsDocument.Root.Add(new MdParagraph(new MdTextSpan("No tools configured.")));
                 return;
             }
 
-            // Summary table
+            // Summary table matching Copilot Studio UI columns
             List<MdTableRow> summaryRows = new List<MdTableRow>();
-            foreach (BotComponent tool in tools.OrderBy(t => t.Name))
+            foreach (AgentToolInfo tool in tools)
             {
-                var (actionKind, connectionRef, operationId, flowId, modelDisplayName, inputs, outputs) = tool.GetToolDetails();
-                string actionTypeDisplay = actionKind switch
-                {
-                    "InvokeConnectorTaskAction" => "Connector",
-                    "InvokeFlowTaskAction" => "Power Automate Flow",
-                    _ => actionKind
-                };
-                summaryRows.Add(new MdTableRow(tool.Name, actionTypeDisplay, !string.IsNullOrEmpty(connectionRef) ? connectionRef : "", !string.IsNullOrEmpty(operationId) ? operationId : ""));
+                summaryRows.Add(new MdTableRow(
+                    tool.Name,
+                    tool.ToolType,
+                    tool.AvailableTo ?? "",
+                    tool.Trigger ?? "",
+                    tool.Enabled ? "On" : "Off"));
             }
-            toolsDocument.Root.Add(new MdTable(new MdTableRow(new List<string>() { "Name", "Action Type", "Connection", "Operation" }), summaryRows));
+            toolsDocument.Root.Add(new MdTable(new MdTableRow(new List<string>() { "Name", "Type", "Available to", "Trigger", "Enabled" }), summaryRows));
 
             // Detail per tool
-            foreach (BotComponent tool in tools.OrderBy(t => t.Name))
+            foreach (AgentToolInfo tool in tools)
             {
                 toolsDocument.Root.Add(new MdHeading(tool.Name, 3));
-                var (actionKind, connectionRef, operationId, flowId, modelDisplayName, inputs, outputs) = tool.GetToolDetails();
 
+                // Details section
+                toolsDocument.Root.Add(new MdHeading("Details", 4));
                 List<MdTableRow> detailRows = new List<MdTableRow>();
-                if (!string.IsNullOrEmpty(modelDisplayName))
-                    detailRows.Add(new MdTableRow("Display Name", modelDisplayName));
+                detailRows.Add(new MdTableRow("Name", tool.Name));
                 if (!string.IsNullOrEmpty(tool.Description))
                     detailRows.Add(new MdTableRow("Description", tool.Description));
-                string actionTypeDisplay = actionKind switch
-                {
-                    "InvokeConnectorTaskAction" => "Connector",
-                    "InvokeFlowTaskAction" => "Power Automate Flow",
-                    _ => actionKind
-                };
-                detailRows.Add(new MdTableRow("Action Type", actionTypeDisplay));
-                if (!string.IsNullOrEmpty(connectionRef))
-                    detailRows.Add(new MdTableRow("Connection Reference", connectionRef));
-                if (!string.IsNullOrEmpty(operationId))
-                    detailRows.Add(new MdTableRow("Operation", operationId));
-                if (!string.IsNullOrEmpty(flowId))
-                    detailRows.Add(new MdTableRow("Flow ID", flowId));
-                if (detailRows.Count > 0)
-                    toolsDocument.Root.Add(new MdTable(new MdTableRow(new List<string>() { "Property", "Value" }), detailRows));
+                detailRows.Add(new MdTableRow("Type", tool.ToolType));
+                detailRows.Add(new MdTableRow("Available to", tool.AvailableTo ?? ""));
+                detailRows.Add(new MdTableRow("Trigger", tool.Trigger ?? ""));
+                detailRows.Add(new MdTableRow("Enabled", tool.Enabled ? "On" : "Off"));
+                if (!string.IsNullOrEmpty(tool.ConnectionReference))
+                    detailRows.Add(new MdTableRow("Connection Reference", tool.ConnectionReference));
+                if (!string.IsNullOrEmpty(tool.OperationId))
+                    detailRows.Add(new MdTableRow("Operation", tool.OperationId));
+                if (!string.IsNullOrEmpty(tool.FlowId))
+                    detailRows.Add(new MdTableRow("Flow ID", tool.FlowId));
+                if (!string.IsNullOrEmpty(tool.AgentFlowName))
+                    detailRows.Add(new MdTableRow("Agent Flow", tool.AgentFlowName));
+                if (!string.IsNullOrEmpty(tool.ModelParameters))
+                    detailRows.Add(new MdTableRow("Model Parameters", tool.ModelParameters));
+                toolsDocument.Root.Add(new MdTable(new MdTableRow(new List<string>() { "Property", "Value" }), detailRows));
 
-                if (inputs.Count > 0)
+                // Inputs section
+                if (tool.Inputs.Count > 0)
                 {
                     toolsDocument.Root.Add(new MdHeading("Inputs", 4));
                     List<MdTableRow> inputRows = new List<MdTableRow>();
-                    foreach (string input in inputs)
+                    foreach (var input in tool.Inputs)
                     {
-                        inputRows.Add(new MdTableRow(input));
+                        inputRows.Add(new MdTableRow(
+                            input.Name + (input.IsRequired ? " *" : ""),
+                            input.FillUsing ?? "",
+                            input.DataType ?? "",
+                            input.Description ?? ""));
                     }
-                    toolsDocument.Root.Add(new MdTable(new MdTableRow(new List<string>() { "Input" }), inputRows));
+                    toolsDocument.Root.Add(new MdTable(new MdTableRow(new List<string>() { "Input name", "Fill using", "Type", "Description" }), inputRows));
                 }
 
-                if (outputs.Count > 0)
+                // Outputs section
+                if (tool.Outputs.Count > 0)
                 {
                     toolsDocument.Root.Add(new MdHeading("Outputs", 4));
                     List<MdTableRow> outputRows = new List<MdTableRow>();
-                    foreach (string output in outputs)
+                    foreach (var output in tool.Outputs)
                     {
-                        outputRows.Add(new MdTableRow(output));
+                        outputRows.Add(new MdTableRow(
+                            output.Name,
+                            output.DataType ?? "",
+                            output.Description ?? ""));
                     }
-                    toolsDocument.Root.Add(new MdTable(new MdTableRow(new List<string>() { "Output" }), outputRows));
+                    toolsDocument.Root.Add(new MdTable(new MdTableRow(new List<string>() { "Output name", "Type", "Description" }), outputRows));
+                }
+
+                // Completion section
+                if (!string.IsNullOrEmpty(tool.ResponseActivity) || !string.IsNullOrEmpty(tool.OutputMode))
+                {
+                    toolsDocument.Root.Add(new MdHeading("Completion", 4));
+                    List<MdTableRow> completionRows = new List<MdTableRow>();
+                    if (!string.IsNullOrEmpty(tool.ResponseActivity))
+                        completionRows.Add(new MdTableRow("After running", "Send specific response"));
+                    if (!string.IsNullOrEmpty(tool.ResponseMode))
+                        completionRows.Add(new MdTableRow("Response Mode", tool.ResponseMode));
+                    if (!string.IsNullOrEmpty(tool.OutputMode))
+                        completionRows.Add(new MdTableRow("Output Mode", tool.OutputMode));
+                    toolsDocument.Root.Add(new MdTable(new MdTableRow(new List<string>() { "Property", "Value" }), completionRows));
+                    if (!string.IsNullOrEmpty(tool.ResponseActivity))
+                    {
+                        toolsDocument.Root.Add(new MdHeading("Message to display", 5));
+                        AddParagraphsWithLinebreaks(toolsDocument, tool.ResponseActivity);
+                    }
+                }
+
+                // Prompt text section (for prompt tools)
+                if (!string.IsNullOrEmpty(tool.PromptText))
+                {
+                    toolsDocument.Root.Add(new MdHeading("Prompt", 4));
+                    AddParagraphsWithLinebreaks(toolsDocument, tool.PromptText);
                 }
             }
         }
