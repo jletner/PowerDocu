@@ -504,7 +504,23 @@ namespace PowerDocu.AppDocumenter
                         table.Append(CreateMergedRow(new Text("DataSource Properties"), 2, WordDocBuilder.cellHeaderBackground));
                         foreach (Expression expression in datasource.Properties.OrderBy(o => o.expressionOperator))
                         {
-                            AddExpressionTable(expression, table);
+                            if (expression.expressionOperator == "TableDefinition")
+                            {
+                                TableDefinitionInfo tdInfo = TableDefinitionHelper.Parse(expression);
+                                if (tdInfo != null)
+                                {
+                                    table.Append(CreateMergedRow(new Text("Table Definition"), 2, WordDocBuilder.cellHeaderBackground));
+                                    foreach (var kvp in TableDefinitionHelper.GetSummaryProperties(tdInfo))
+                                    {
+                                        table.Append(CreateRow(new Text(kvp.Key), new Text(kvp.Value)));
+                                    }
+
+                                }
+                            }
+                            else
+                            {
+                                AddExpressionTable(expression, table);
+                            }
                         }
                     }
                     body.Append(table);

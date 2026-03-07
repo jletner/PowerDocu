@@ -485,24 +485,38 @@ namespace PowerDocu.AppDocumenter
                     dataSourceDocument.Root.Add(new MdHeading("DataSource Properties", 4));
                     foreach (Expression expression in datasource.Properties.OrderBy(o => o.expressionOperator))
                     {
-                        if (expression.expressionOperator != "TableDefinition")
+                        if (expression.expressionOperator == "TableDefinition")
                         {
-                            if (expression.expressionOperands.Count > 1)
-                            {
-                                tableRows.Add(new MdTableRow(expression.expressionOperator, new MdRawMarkdownSpan(AddExpressionDetails(new List<Expression> { expression }))));
-                            }
-                            else
-                            {
-                                tableRows.Add(new MdTableRow(expression.expressionOperator, (expression.expressionOperands.Count > 0) ? expression.expressionOperands[0].ToString() : ""));
-                            }
+                            continue;
+                        }
+                        if (expression.expressionOperands.Count > 1)
+                        {
+                            tableRows.Add(new MdTableRow(expression.expressionOperator, new MdRawMarkdownSpan(AddExpressionDetails(new List<Expression> { expression }))));
                         }
                         else
                         {
-                            //todo document the table definition ? probably make it configurable
-                            // removed it for the moment as it resulted in very large files with likely little value
+                            tableRows.Add(new MdTableRow(expression.expressionOperator, (expression.expressionOperands.Count > 0) ? expression.expressionOperands[0].ToString() : ""));
                         }
                     }
                     dataSourceDocument.Root.Add(new MdTable(new MdTableRow("Property", "Value"), tableRows));
+
+                    // Render parsed Table Definition for Dataverse tables
+                    Expression tableDefExpr = datasource.Properties.FirstOrDefault(o => o.expressionOperator == "TableDefinition");
+                    if (tableDefExpr != null)
+                    {
+                        TableDefinitionInfo tdInfo = TableDefinitionHelper.Parse(tableDefExpr);
+                        if (tdInfo != null)
+                        {
+                            dataSourceDocument.Root.Add(new MdHeading("Table Definition", 4));
+                            List<MdTableRow> tdRows = new List<MdTableRow>();
+                            foreach (var kvp in TableDefinitionHelper.GetSummaryProperties(tdInfo))
+                            {
+                                tdRows.Add(new MdTableRow(kvp.Key, kvp.Value));
+                            }
+                            dataSourceDocument.Root.Add(new MdTable(new MdTableRow("Property", "Value"), tdRows));
+
+                        }
+                    }
                 }
             }
         }

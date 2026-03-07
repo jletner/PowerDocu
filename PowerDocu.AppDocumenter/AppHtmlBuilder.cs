@@ -291,19 +291,38 @@ namespace PowerDocu.AppDocumenter
                     dsBody.Append(TableStart("Property", "Value"));
                     foreach (Expression expression in datasource.Properties.OrderBy(o => o.expressionOperator))
                     {
-                        if (expression.expressionOperator != "TableDefinition")
+                        if (expression.expressionOperator == "TableDefinition")
                         {
-                            if (expression.expressionOperands.Count > 1)
-                            {
-                                dsBody.Append(TableRowRaw(Encode(expression.expressionOperator), AddExpressionDetails(new List<Expression> { expression })));
-                            }
-                            else
-                            {
-                                dsBody.Append(TableRow(expression.expressionOperator, (expression.expressionOperands.Count > 0) ? expression.expressionOperands[0].ToString() : ""));
-                            }
+                            continue;
+                        }
+                        if (expression.expressionOperands.Count > 1)
+                        {
+                            dsBody.Append(TableRowRaw(Encode(expression.expressionOperator), AddExpressionDetails(new List<Expression> { expression })));
+                        }
+                        else
+                        {
+                            dsBody.Append(TableRow(expression.expressionOperator, (expression.expressionOperands.Count > 0) ? expression.expressionOperands[0].ToString() : ""));
                         }
                     }
                     dsBody.AppendLine(TableEnd());
+
+                    // Render parsed Table Definition for Dataverse tables
+                    Expression tableDefExpr = datasource.Properties.FirstOrDefault(o => o.expressionOperator == "TableDefinition");
+                    if (tableDefExpr != null)
+                    {
+                        TableDefinitionInfo tdInfo = TableDefinitionHelper.Parse(tableDefExpr);
+                        if (tdInfo != null)
+                        {
+                            dsBody.AppendLine(Heading(4, "Table Definition"));
+                            dsBody.Append(TableStart("Property", "Value"));
+                            foreach (var kvp in TableDefinitionHelper.GetSummaryProperties(tdInfo))
+                            {
+                                dsBody.Append(TableRow(kvp.Key, kvp.Value));
+                            }
+                            dsBody.AppendLine(TableEnd());
+
+                        }
+                    }
                     SaveHtmlFile(Path.Combine(content.folderPath, dsFileName),
                         WrapInHtmlPage("DataSource - " + datasource.Name, dsBody.ToString(), getNavigationHtml()));
                 }
