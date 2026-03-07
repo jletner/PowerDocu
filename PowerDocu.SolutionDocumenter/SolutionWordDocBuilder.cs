@@ -757,7 +757,7 @@ namespace PowerDocu.SolutionDocumenter
             {
                 "Global" => AccessLevel.Global,
                 "Deep" => AccessLevel.Deep,
-                "Loca" => AccessLevel.Local,
+                "Local" => AccessLevel.Local,
                 "Basic" => AccessLevel.Basic,
                 _ => AccessLevel.None
             };
