@@ -238,7 +238,8 @@ namespace PowerDocu.AppDocumenter
                     run.AppendChild(new Text("Screen: " + control.Name));
                 }
                 ApplyStyleToParagraph("Heading2", para);
-                body.AppendChild(CreateControlTable(control));
+                AppendControlTree(control, 0);
+                body.AppendChild(new Paragraph(new Run(new Break())));
             }
             body.AppendChild(new Paragraph(new Run(new Break())));
             para = body.AppendChild(new Paragraph());
@@ -269,35 +270,53 @@ namespace PowerDocu.AppDocumenter
             body.AppendChild(new Paragraph(new Run(new Break())));
         }
 
-        private Table CreateControlTable(ControlEntity control)
+        /// <summary>
+        /// Renders the control hierarchy as indented paragraphs with inline icons,
+        /// instead of deeply nested tables. Each level indents by 360 twips (~0.25 inch).
+        /// </summary>
+        private void AppendControlTree(ControlEntity control, int depth)
         {
-            return CreateControlTable(control, BorderValues.Single);
-        }
-
-        private Table CreateControlTable(ControlEntity control, BorderValues borderType)
-        {
-            string styleId = borderType == BorderValues.None ? TableStyleNone : TableStyleOuterOnly;
-            Table table = CreateStyledTable(styleId);
+            const int indentPerLevel = 360; // twips per nesting level
             string controlType = control.Type;
-            OpenXmlElement controlElement;
+
+            // Build the paragraph: [icon] ControlName [Type]
+            Drawing icon = InsertSvgImage(mainPart, AppControlIcons.GetControlIcon(controlType), 16, 16);
+            Paragraph para = new Paragraph();
+
+            // Set indentation based on depth
+            if (depth > 0)
+            {
+                para.ParagraphProperties = new ParagraphProperties(
+                    new Indentation() { Left = (depth * indentPerLevel).ToString() });
+            }
+
+            // Icon run
+            para.Append(new Run(icon));
+
+            // Space between icon and text
+            para.Append(new Run(new Text(" ") { Space = SpaceProcessingModeValues.Preserve }));
+
+            // Control name + type 
             if (DetailedDocumentation)
             {
-                controlElement = new Hyperlink(new Run(new Text(control.Name + " [" + controlType + "]")))
+                para.Append(new Hyperlink(new Run(new Text(control.Name + " [" + controlType + "]")))
                 {
                     Anchor = CreateMD5Hash(control.Name),
                     DocLocation = ""
-                };
+                });
             }
             else
             {
-                controlElement = new Text(control.Name + " [" + controlType + "]");
+                para.Append(new Run(new Text(control.Name + " [" + controlType + "]")));
             }
-            table.Append(CreateRow(InsertSvgImage(mainPart, AppControlIcons.GetControlIcon(controlType), 32, 32), controlElement));
+
+            body.AppendChild(para);
+
+            // Recurse into children
             foreach (ControlEntity child in control.Children.OrderBy(o => o.Name).ToList())
             {
-                table.Append(CreateRow(new Text(""), CreateControlTable(child, BorderValues.None)));
+                AppendControlTree(child, depth + 1);
             }
-            return table;
         }
 
         private void addDetailedAppControls()
@@ -506,16 +525,7 @@ namespace PowerDocu.AppDocumenter
                         {
                             if (expression.expressionOperator == "TableDefinition")
                             {
-                                TableDefinitionInfo tdInfo = TableDefinitionHelper.Parse(expression);
-                                if (tdInfo != null)
-                                {
-                                    table.Append(CreateMergedRow(new Text("Table Definition"), 2, WordDocBuilder.cellHeaderBackground));
-                                    foreach (var kvp in TableDefinitionHelper.GetSummaryProperties(tdInfo))
-                                    {
-                                        table.Append(CreateRow(new Text(kvp.Key), new Text(kvp.Value)));
-                                    }
-
-                                }
+                                AddTableDefinitionSummary(expression, table);
                             }
                             else
                             {
@@ -528,6 +538,32 @@ namespace PowerDocu.AppDocumenter
                 }
             }
             body.AppendChild(new Paragraph(new Run(new Break())));
+        }
+
+        private void AddTableDefinitionSummary(Expression tableDefinition, Table table)
+        {
+            var info = TableDefinitionHelper.Parse(tableDefinition);
+            if (info == null)
+            {
+                // Fallback to raw expression rendering if parsing fails
+                AddExpressionTable(tableDefinition, table);
+                return;
+            }
+
+            table.Append(CreateMergedRow(new Text("Table Definition"), 2, WordDocBuilder.cellHeaderBackground));
+            foreach (var prop in TableDefinitionHelper.GetSummaryProperties(info))
+            {
+                table.Append(CreateRow(new Text(prop.Key), new Text(prop.Value)));
+            }
+
+            if (info.Privileges.Count > 0)
+            {
+                table.Append(CreateMergedRow(new Text("Privileges"), 2, WordDocBuilder.cellHeaderBackground));
+                foreach (var priv in info.Privileges)
+                {
+                    table.Append(CreateRow(new Text(priv.Name ?? ""), new Text(priv.PrivilegeType ?? "")));
+                }
+            }
         }
 
         private void addAppResources()
