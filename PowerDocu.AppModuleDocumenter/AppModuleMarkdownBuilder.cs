@@ -18,7 +18,7 @@ namespace PowerDocu.AppModuleDocumenter
         {
             content = contentDocumentation;
             Directory.CreateDirectory(content.folderPath);
-            mainDocumentFileName = ("appmodule-" + content.filename + ".md").Replace(" ", "-");
+            mainDocumentFileName = ("mda-" + content.filename + ".md").Replace(" ", "-");
             set = new DocumentSet<MdDocument>();
             mainDocument = set.CreateMdDocument(mainDocumentFileName);
 

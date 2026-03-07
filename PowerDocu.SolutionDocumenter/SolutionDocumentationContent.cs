@@ -41,7 +41,7 @@ namespace PowerDocu.SolutionDocumenter
                     return flow.Name + " (" + flow.trigger.Name + ": " + flow.trigger.Type + ")";
                 }
             }
-            if (component.Type == "App Module")
+            if (component.Type == "Model-Driven App")
             {
                 AppModuleEntity appModule = appModules.Where(a => a.UniqueName != null && a.UniqueName.Equals(component.SchemaName, StringComparison.OrdinalIgnoreCase))?.FirstOrDefault();
                 if (appModule != null)

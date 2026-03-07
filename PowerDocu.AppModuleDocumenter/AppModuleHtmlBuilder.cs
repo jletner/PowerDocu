@@ -16,7 +16,7 @@ namespace PowerDocu.AppModuleDocumenter
             content = contentDocumentation;
             Directory.CreateDirectory(content.folderPath);
             WriteDefaultStylesheet(content.folderPath);
-            mainFileName = ("appmodule-" + content.filename + ".html").Replace(" ", "-");
+            mainFileName = ("mda-" + content.filename + ".html").Replace(" ", "-");
 
             addOverviewPage();
             NotificationHelper.SendNotification("Created HTML documentation for Model-Driven App: " + content.appModule.GetDisplayName());

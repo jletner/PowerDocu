@@ -28,7 +28,7 @@ namespace PowerDocu.AppModuleDocumenter
         {
             NotificationHelper.SendNotification("Preparing documentation content for Model-Driven App: " + appModule.GetDisplayName());
             this.appModule = appModule;
-            folderPath = path + CharsetHelper.GetSafeName(@"\AppModuleDoc " + appModule.GetDisplayName() + @"\");
+            folderPath = path + CharsetHelper.GetSafeName(@"\MDADoc " + appModule.GetDisplayName() + @"\");
             Directory.CreateDirectory(folderPath);
             filename = CharsetHelper.GetSafeName(appModule.GetDisplayName());
             allRoles = roles ?? new List<RoleEntity>();
@@ -41,8 +41,10 @@ namespace PowerDocu.AppModuleDocumenter
         public string GetRoleNameById(string roleId)
         {
             if (string.IsNullOrEmpty(roleId)) return roleId;
-            RoleEntity role = allRoles.FirstOrDefault(r => r.ID != null && r.ID.Equals(roleId, System.StringComparison.OrdinalIgnoreCase));
-            return role?.Name ?? roleId;
+            RoleEntity role = allRoles.FirstOrDefault(r => r.ID != null && r.ID.Trim('{', '}').Equals(roleId.Trim('{', '}'), System.StringComparison.OrdinalIgnoreCase));
+            if (role?.Name != null) return role.Name;
+            // If not found in the solution roles, try to resolve against known OOTB role templates
+            return SecurityRoles.GetDisplayName(roleId) ?? roleId;
         }
 
         /// <summary>
