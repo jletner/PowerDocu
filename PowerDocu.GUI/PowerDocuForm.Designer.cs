@@ -237,10 +237,9 @@ namespace PowerDocu.GUI
             // Solution: Document Default Columns Checkbox
             documentDefaultColumnsCheckBox = new CheckBox()
             {
-                TextAlign = ContentAlignment.MiddleLeft,
-                Text = "Solution: Document default columns",
+                Text = "Document Dataverse table default columns",
                 Checked = false,
-                Size = new Size(convertToDPISpecific(300), convertToDPISpecific(30)),
+                AutoSize = true,
                 Location = new Point(convertToDPISpecific(30), solutionCheckBox.Location.Y + solutionCheckBox.Height + convertToDPISpecific(5))
             };
             docOptionsInnerPanel.Controls.Add(documentDefaultColumnsCheckBox);
@@ -248,7 +247,7 @@ namespace PowerDocu.GUI
             // Flows Checkbox
             flowsCheckBox = new CheckBox()
             {
-                Text = "Flows",
+                Text = "Cloud & Agent Flows",
                 Location = new Point(convertToDPISpecific(15), documentDefaultColumnsCheckBox.Location.Y + documentDefaultColumnsCheckBox.Height + convertToDPISpecific(10)),
                 Checked = true,
                 AutoSize = true
@@ -286,11 +285,21 @@ namespace PowerDocu.GUI
             };
             docOptionsInnerPanel.Controls.Add(agentsCheckBox);
 
+            // Model-Driven Apps Checkbox
+            modelDrivenAppsCheckBox = new CheckBox()
+            {
+                Text = "Model-Driven Apps",
+                Location = new Point(convertToDPISpecific(15), agentsCheckBox.Location.Y + agentsCheckBox.Height + convertToDPISpecific(10)),
+                Checked = true,
+                AutoSize = true,
+            };
+            docOptionsInnerPanel.Controls.Add(modelDrivenAppsCheckBox);
+
             // Apps Checkbox
             appsCheckBox = new CheckBox()
             {
-                Text = "Apps",
-                Location = new Point(convertToDPISpecific(15), agentsCheckBox.Location.Y + agentsCheckBox.Height + convertToDPISpecific(10)),
+                Text = "Canvas Apps",
+                Location = new Point(convertToDPISpecific(15), modelDrivenAppsCheckBox.Location.Y + modelDrivenAppsCheckBox.Height + convertToDPISpecific(10)),
                 Checked = true,
                 AutoSize = true
             };
@@ -300,7 +309,7 @@ namespace PowerDocu.GUI
             documentChangesOrEverythingLabel = new Label()
             {
                 Location = new Point(convertToDPISpecific(30), appsCheckBox.Location.Y + appsCheckBox.Height + convertToDPISpecific(10)),
-                Text = "Canvas Apps: Document Changed Properties or All Properties",
+                Text = "Document Changed Properties or All Properties",
                 Width = convertToDPISpecific(350),
                 Height = convertToDPISpecific(20)
             };
@@ -331,7 +340,7 @@ namespace PowerDocu.GUI
             documentDefaultsCheckBox = new CheckBox()
             {
                 TextAlign = ContentAlignment.MiddleLeft,
-                Text = "Canvas Apps: Document default values of properties",
+                Text = "Document default values of properties",
                 Checked = true,
                 Size = new Size(convertToDPISpecific(350), convertToDPISpecific(30)),
                 Location = new Point(convertToDPISpecific(45), documentEverythingRadioButton.Location.Y + documentEverythingRadioButton.Height)
@@ -342,7 +351,7 @@ namespace PowerDocu.GUI
             documentSampleDataCheckBox = new CheckBox()
             {
                 TextAlign = ContentAlignment.MiddleLeft,
-                Text = "Canvas Apps: Document sample datasources",
+                Text = "Document sample datasources",
                 Checked = false,
                 Size = new Size(convertToDPISpecific(300), convertToDPISpecific(30)),
                 Location = new Point(convertToDPISpecific(45), documentDefaultsCheckBox.Location.Y + documentDefaultsCheckBox.Height)
@@ -352,7 +361,7 @@ namespace PowerDocu.GUI
             // Apps Options GroupBox
             GroupBox appsSubOptionsGroup = new GroupBox()
             {
-                Text = "Apps Options",
+                Text = "Canvas Apps Options",
                 Padding = new Padding(10),
                 Location = new Point(convertToDPISpecific(30), documentSampleDataCheckBox.Location.Y + documentSampleDataCheckBox.Height + convertToDPISpecific(10)),
                 Size = new Size(convertToDPISpecific(350), convertToDPISpecific(150)),
@@ -692,7 +701,7 @@ namespace PowerDocu.GUI
         private TextBox appStatusTextBox;
         private ComboBox outputFormatComboBox, flowActionSortOrderComboBox;
         private GroupBox outputFormatGroup, documentationOptionsGroup, otherOptionsGroup;
-        private CheckBox documentDefaultsCheckBox, documentSampleDataCheckBox, documentDefaultColumnsCheckBox, appPropertiesCheckBox, variablesCheckBox, dataSourcesCheckBox, resourcesCheckBox, controlsCheckBox, appsCheckBox, agentsCheckBox, flowsCheckBox, solutionCheckBox, checkForUpdatesOnLaunchCheckBox, addTableOfContentsCheckBox;
+        private CheckBox documentDefaultsCheckBox, documentSampleDataCheckBox, documentDefaultColumnsCheckBox, appPropertiesCheckBox, variablesCheckBox, dataSourcesCheckBox, resourcesCheckBox, controlsCheckBox, appsCheckBox, agentsCheckBox, modelDrivenAppsCheckBox, flowsCheckBox, solutionCheckBox, checkForUpdatesOnLaunchCheckBox, addTableOfContentsCheckBox;
         private RadioButton documentChangesOnlyRadioButton, documentEverythingRadioButton;
         private Label wordTemplateInfoLabel, fileToParseInfoLabel, outputFormatInfoLabel,
                         flowActionSortOrderInfoLabel, newReleaseLabel, updateConnectorIconsLabel,

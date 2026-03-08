@@ -40,6 +40,7 @@ namespace PowerDocu.GUI
             solutionCheckBox.Checked = configHelper.documentSolution;
             documentDefaultColumnsCheckBox.Checked = configHelper.documentDefaultColumns;
             agentsCheckBox.Checked = configHelper.documentAgents;
+            modelDrivenAppsCheckBox.Checked = configHelper.documentModelDrivenApps;
             flowsCheckBox.Checked = configHelper.documentFlows;
             appsCheckBox.Checked = configHelper.documentApps;
             appPropertiesCheckBox.Checked = configHelper.documentAppProperties;
@@ -183,6 +184,7 @@ namespace PowerDocu.GUI
             configHelper.documentSolution = solutionCheckBox.Checked;
             configHelper.documentDefaultColumns = documentDefaultColumnsCheckBox.Checked;
             configHelper.documentAgents = agentsCheckBox.Checked;
+            configHelper.documentModelDrivenApps = modelDrivenAppsCheckBox.Checked;
             configHelper.documentFlows = flowsCheckBox.Checked;
             configHelper.documentApps = appsCheckBox.Checked;
             configHelper.documentAppProperties = appPropertiesCheckBox.Checked;
@@ -361,7 +363,7 @@ namespace PowerDocu.GUI
         {
             if (outputFormatComboBox != null && selectWordTemplateButton != null)
             {
-                if(outputFormatComboBox.SelectedItem.ToString().Equals(OutputFormatHelper.Word)
+                if (outputFormatComboBox.SelectedItem.ToString().Equals(OutputFormatHelper.Word)
                     || outputFormatComboBox.SelectedItem.ToString().Equals(OutputFormatHelper.All))
                 {
                     selectWordTemplateButton.Enabled = true;
@@ -376,7 +378,6 @@ namespace PowerDocu.GUI
                     addTableOfContentsCheckBox.Enabled = false;
                     addTableOfContentsCheckBox.ForeColor = Color.Gray;
                 }
-                
             }
         }
     }

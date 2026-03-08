@@ -53,12 +53,16 @@ namespace PowerDocu.SolutionDocumenter
                             : outputPath + @"\" + CharsetHelper.GetSafeName(Path.GetFileNameWithoutExtension(filePath) + @"\");
 
                         // Generate Model-Driven App documentation
-                        appModules = AppModuleDocumentationGenerator.GenerateDocumentation(
-                            solutionParser.solution,
-                            fullDocumentation,
-                            config,
-                            path
-                        );
+                        if (config.documentModelDrivenApps)
+                        {
+                            appModules = AppModuleDocumentationGenerator.GenerateDocumentation(
+                                solutionParser.solution,
+                                fullDocumentation,
+                                config,
+                                path,
+                                apps
+                            );
+                        }
 
                         SolutionDocumentationContent solutionContent = new SolutionDocumentationContent(solutionParser.solution, apps, flows, appModules, path);
                         DataverseGraphBuilder dataverseGraphBuilder = new DataverseGraphBuilder(solutionContent);
