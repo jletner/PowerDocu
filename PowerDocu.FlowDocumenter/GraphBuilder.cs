@@ -546,10 +546,9 @@ namespace PowerDocu.FlowDocumenter
         /// </summary>
         private string generateCardHtml(string accentColor, string innerHtml)
         {
-            return "<table border=\"1\" cellborder=\"0\" cellspacing=\"0\" cellpadding=\"4\" color=\"#e0e0e0\" bgcolor=\"white\">"
+            return "<table border=\"2\" cellborder=\"0\" cellspacing=\"0\" cellpadding=\"6\" color=\"" + accentColor + "\" bgcolor=\"white\" style=\"rounded\">"
                  + "<tr>"
-                 + "<td bgcolor=\"" + accentColor + "\" width=\"6\"> </td>"
-                 + "<td cellpadding=\"6\">" + innerHtml + "</td>"
+                 + "<td>" + innerHtml + "</td>"
                  + "</tr></table>";
         }
 
