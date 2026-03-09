@@ -58,12 +58,7 @@ namespace PowerDocu.AgentDocumenter
             Node.IntroduceAttribute(rootGraph, "label", "");
             Node.IntroduceAttribute(rootGraph, "fontname", "helvetica");
             Edge.IntroduceAttribute(rootGraph, "label", "");
-            var yaml = new YamlStream();
-            //pasrse the topic YAML data
-            //this is ugly and should't be done, but otherwise YamlDotNet throws an error.... need longterm strategy
-            var input = new StringReader(topic.YamlData.Replace("@odata", "odata"));
-            yaml.Load(input);
-            var mapping = (YamlMappingNode)yaml.Documents[0].RootNode;
+            var mapping = topic.GetYamlMappingNode();
 
             // Guard: skip graph generation for non-AdaptiveDialog topics (e.g. KnowledgeSourceConfiguration)
             if (!mapping.Children.TryGetValue(new YamlScalarNode("beginDialog"), out var beginDialogNode)
