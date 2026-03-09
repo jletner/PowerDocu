@@ -59,9 +59,11 @@ namespace PowerDocu.SolutionDocumenter
                     if (!string.IsNullOrEmpty(flowName))
                     {
                         FlowEntity flow = context.GetFlowById(component.ID);
+                        string typeLabel = "[" + FlowEntity.GetModernFlowTypeLabel(
+                            flow?.modernFlowType ?? FlowEntity.ModernFlowType.CloudFlow) + "]";
                         if (flow?.trigger != null)
-                            return flowName + " (" + flow.trigger.Name + ": " + flow.trigger.Type + ")";
-                        return flowName;
+                            return flowName + " (" + flow.trigger.Name + ": " + flow.trigger.Type + ") " + typeLabel;
+                        return flowName + " " + typeLabel;
                     }
                 }
                 // Fallback: search parsed flows list by ID
@@ -69,7 +71,8 @@ namespace PowerDocu.SolutionDocumenter
                     f.ID != null && f.ID.Trim('{', '}').Equals(component.ID?.Trim('{', '}'), StringComparison.OrdinalIgnoreCase));
                 if (flowEntity != null)
                 {
-                    return flowEntity.Name + " (" + flowEntity.trigger.Name + ": " + flowEntity.trigger.Type + ")";
+                    string typeLabel = "[" + FlowEntity.GetModernFlowTypeLabel(flowEntity.modernFlowType) + "]";
+                    return flowEntity.Name + " (" + flowEntity.trigger.Name + ": " + flowEntity.trigger.Type + ") " + typeLabel;
                 }
             }
             if (component.Type == "Model-Driven App")
@@ -81,6 +84,39 @@ namespace PowerDocu.SolutionDocumenter
                 }
             }
             return solution.GetDisplayNameForComponent(component);
+        }
+
+        /// <summary>
+        /// Returns structured display parts for a Workflow component:
+        /// Name, Trigger Info (e.g. "manual: Request"), and Flow Type (e.g. "Cloud Flow").
+        /// </summary>
+        public (string Name, string TriggerInfo, string FlowType) GetWorkflowDisplayParts(SolutionComponent component)
+        {
+            if (context != null)
+            {
+                string flowName = context.GetFlowNameById(component.ID);
+                if (!string.IsNullOrEmpty(flowName))
+                {
+                    FlowEntity flow = context.GetFlowById(component.ID);
+                    string flowType = FlowEntity.GetModernFlowTypeLabel(
+                        flow?.modernFlowType ?? FlowEntity.ModernFlowType.CloudFlow);
+                    string triggerInfo = (flow?.trigger != null)
+                        ? flow.trigger.Name + ": " + flow.trigger.Type
+                        : "";
+                    return (flowName, triggerInfo, flowType);
+                }
+            }
+            FlowEntity flowEntity = flows?.FirstOrDefault(f =>
+                f.ID != null && f.ID.Trim('{', '}').Equals(component.ID?.Trim('{', '}'), StringComparison.OrdinalIgnoreCase));
+            if (flowEntity != null)
+            {
+                string flowType = FlowEntity.GetModernFlowTypeLabel(flowEntity.modernFlowType);
+                string triggerInfo = (flowEntity.trigger != null)
+                    ? flowEntity.trigger.Name + ": " + flowEntity.trigger.Type
+                    : "";
+                return (flowEntity.Name, triggerInfo, flowType);
+            }
+            return (solution.GetDisplayNameForComponent(component), "", "");
         }
     }
 }

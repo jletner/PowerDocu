@@ -63,6 +63,15 @@ namespace PowerDocu.SolutionDocumenter
                     {
                         context.AppModules = context.Customizations.getAppModules() ?? new List<AppModuleEntity>();
                     }
+
+                    // Enrich flows with ModernFlowType from customizations.xml
+                    foreach (FlowEntity flow in context.Flows)
+                    {
+                        if (!string.IsNullOrEmpty(flow.ID))
+                        {
+                            flow.modernFlowType = context.Customizations.getModernFlowTypeById(flow.ID);
+                        }
+                    }
                 }
             }
 
@@ -76,30 +85,35 @@ namespace PowerDocu.SolutionDocumenter
             // ── Phase 2: Generate all documentation ────────────────────────
             NotificationHelper.SendNotification("Phase 2: Generating documentation...");
 
+            // Compute centralised solution base path so that all sub-documenters
+            // write into the same Solution folder, regardless of how individual
+            // parsers classify the package.
+            string solutionBasePath = outputPath == null
+                ? Path.GetDirectoryName(filePath) + @"\Solution " + CharsetHelper.GetSafeName(Path.GetFileNameWithoutExtension(filePath))
+                : outputPath + @"\" + CharsetHelper.GetSafeName(Path.GetFileNameWithoutExtension(filePath));
+
             // Generate flow documentation
-            if (flowPath != null)
+            if (flows != null)
             {
-                FlowDocumentationGenerator.GenerateOutput(context, flowPath);
+                FlowDocumentationGenerator.GenerateOutput(context, solutionBasePath);
             }
 
             // Generate app documentation
-            if (appPath != null)
+            if (apps != null)
             {
-                AppDocumentationGenerator.GenerateOutput(context, appPath);
+                AppDocumentationGenerator.GenerateOutput(context, solutionBasePath);
             }
 
             // Generate agent documentation
-            if (agentPath != null)
+            if (agents != null)
             {
-                AgentDocumentationGenerator.GenerateOutput(context, agentPath);
+                AgentDocumentationGenerator.GenerateOutput(context, solutionBasePath);
             }
 
             // Generate solution-level documentation (solution overview, model-driven apps, Dataverse graph)
             if (config.documentSolution && context.Solution != null)
             {
-                string solutionPath = outputPath == null
-                    ? Path.GetDirectoryName(filePath) + @"\Solution " + CharsetHelper.GetSafeName(Path.GetFileNameWithoutExtension(filePath) + @"\")
-                    : outputPath + @"\" + CharsetHelper.GetSafeName(Path.GetFileNameWithoutExtension(filePath) + @"\");
+                string solutionPath = solutionBasePath + @"\";
 
                 // Generate Model-Driven App documentation
                 if (config.documentModelDrivenApps)

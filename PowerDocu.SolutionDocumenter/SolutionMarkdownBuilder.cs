@@ -227,6 +227,9 @@ namespace PowerDocu.SolutionDocumenter
                     case "Option Set":
                         renderOptionSets();
                         break;
+                    case "Workflow":
+                        renderWorkflows();
+                        break;
                     default:
                         solutionDoc.Root.Add(new MdHeading(section.ComponentType, 3));
                         List<SolutionComponent> components = content.solution.Components.Where(c => c.Type == section.ComponentType).ToList();
@@ -291,6 +294,28 @@ namespace PowerDocu.SolutionDocumenter
             else
             {
                 solutionDoc.Root.Add(new MdParagraph(new MdTextSpan("This solution has no dependencies.")));
+            }
+        }
+
+        private void renderWorkflows()
+        {
+            solutionDoc.Root.Add(new MdHeading("Workflow", 3));
+            List<SolutionComponent> components = content.solution.Components.Where(c => c.Type == "Workflow").ToList();
+            if (components.Count > 0)
+            {
+                var sortedComponents = components
+                    .Select(c => (comp: c, parts: content.GetWorkflowDisplayParts(c)))
+                    .OrderBy(x => x.parts.Name, StringComparer.OrdinalIgnoreCase).ToList();
+                List<MdTableRow> rows = new List<MdTableRow>();
+                foreach (var (comp, parts) in sortedComponents)
+                {
+                    MdSpan nameCell = GetCrossDocLinkMdForComponent(comp, parts.Name);
+                    rows.Add(new MdTableRow(nameCell, new MdTextSpan(parts.TriggerInfo), new MdTextSpan(parts.FlowType)));
+                }
+                if (rows.Count > 0)
+                {
+                    solutionDoc.Root.Add(new MdTable(new MdTableRow("Name", "Trigger Type", "Flow Type"), rows));
+                }
             }
         }
 

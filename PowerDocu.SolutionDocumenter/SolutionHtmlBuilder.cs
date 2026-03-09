@@ -316,6 +316,9 @@ namespace PowerDocu.SolutionDocumenter
                     case "Option Set":
                         renderOptionSets(body);
                         break;
+                    case "Workflow":
+                        renderWorkflows(body);
+                        break;
                     default:
                         body.AppendLine(HeadingWithId(3, section.ComponentType, SanitizeAnchorId(section.ComponentType)));
                         List<SolutionComponent> components = content.solution.Components.Where(c => c.Type == section.ComponentType).ToList();
@@ -419,6 +422,26 @@ namespace PowerDocu.SolutionDocumenter
                     break;
             }
             return Encode(displayName);
+        }
+
+        private void renderWorkflows(StringBuilder body)
+        {
+            body.AppendLine(HeadingWithId(3, "Workflow", SanitizeAnchorId("Workflow")));
+            List<SolutionComponent> components = content.solution.Components.Where(c => c.Type == "Workflow").ToList();
+            if (components.Count > 0)
+            {
+                var sortedComponents = components
+                    .Select(c => (comp: c, parts: content.GetWorkflowDisplayParts(c)))
+                    .OrderBy(x => x.parts.Name, StringComparer.OrdinalIgnoreCase).ToList();
+                body.Append(TableStart("Name", "Trigger Type", "Flow Type"));
+                foreach (var (comp, parts) in sortedComponents)
+                {
+                    string anchorId = SanitizeAnchorId("comp-" + parts.Name);
+                    string nameCell = GetCrossDocLinkHtmlForComponent(comp, parts.Name);
+                    body.Append($"<tr id=\"{Encode(anchorId)}\"><td>{nameCell}</td><td>{Encode(parts.TriggerInfo)}</td><td>{Encode(parts.FlowType)}</td></tr>");
+                }
+                body.AppendLine(TableEnd());
+            }
         }
 
         private void renderOptionSets(StringBuilder body)

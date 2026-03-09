@@ -57,6 +57,7 @@ namespace PowerDocu.FlowDocumenter
             {
                 metadataTable.Add("Flow ID", flow.ID);
             }
+            metadataTable.Add("Flow Type", FlowEntity.GetModernFlowTypeLabel(flow.modernFlowType));
             if (!String.IsNullOrEmpty(flow.Description))
             {
                 metadataTable.Add("Description", flow.Description);

@@ -226,6 +226,9 @@ namespace PowerDocu.SolutionDocumenter
                     case "Option Set":
                         renderOptionSets();
                         break;
+                    case "Workflow":
+                        renderWorkflows();
+                        break;
                     default:
                         AddHeading(section.ComponentType, "Heading2");
                         List<SolutionComponent> components = content.solution.Components.Where(c => c.Type == section.ComponentType).ToList();
@@ -617,6 +620,26 @@ namespace PowerDocu.SolutionDocumenter
             )));
             para = body.AppendChild(new Paragraph());
             run = para.AppendChild(new Run());
+        }
+
+        private void renderWorkflows()
+        {
+            AddHeading("Workflow", "Heading2");
+            List<SolutionComponent> components = content.solution.Components.Where(c => c.Type == "Workflow").ToList();
+            if (components.Count > 0)
+            {
+                var sortedComponents = components
+                    .Select(c => (comp: c, parts: content.GetWorkflowDisplayParts(c)))
+                    .OrderBy(x => x.parts.Name, StringComparer.OrdinalIgnoreCase).ToList();
+                Table table = CreateTable();
+                table.Append(CreateHeaderRow(new Text("Name"), new Text("Trigger Type"), new Text("Flow Type")));
+                foreach (var (comp, parts) in sortedComponents)
+                {
+                    table.Append(CreateRow(new Text(parts.Name), new Text(parts.TriggerInfo), new Text(parts.FlowType)));
+                }
+                body.Append(table);
+                body.AppendChild(new Paragraph());
+            }
         }
 
         private void renderOptionSets()
