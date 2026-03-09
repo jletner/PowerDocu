@@ -244,7 +244,7 @@ namespace PowerDocu.AppModuleDocumenter
                 {
                     string safeFilename = CharsetHelper.GetSafeName(app.Name);
                     string indexFile = ("index-" + safeFilename + ".md").Replace(" ", "-");
-                    string href = content.GetCanvasAppDocRelativePath(app, indexFile);
+                    string href = content.GetCanvasAppDocRelativePath(app, indexFile).Replace(" ", "%20");
                     canvasAppCell = $"[{app.Name}]({href})";
                 }
                 else
