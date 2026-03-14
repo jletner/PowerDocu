@@ -86,7 +86,11 @@ If you can think of ways to improve it, here are some things that you can do:
 
 
 ## What other documentation options are there for the Power Platform?
-
-- **PowerApps-docstring** is a console based, pipeline ready application that automatically generates user and technical documentation for PowerApps: https://github.com/sebastian-muthwill/powerapps-docstring
+- **Blueprints for Power and Agents** is an Open Source Plugin for GitHub Copilot CLI & Claude Code: https://promptclickrun.github.io/power-agents-blueprint/
+- **Mightora Power Platform DevOps Extension** is a collection of pipeline tasks designed to automate and streamline the development, deployment, and management of Power Platform solution: https://marketplace.visualstudio.com/items?itemName=mightoraio.mightora-power-platform-devOps-extension (video: https://www.youtube.com/watch?v=iljeesT50uM)
 - **FlowToVisio**, a tool to create Visio representations of your Cloud Flows: https://github.com/LinkeD365/FlowToVisio
+
+
+Older solutions (likely not actively maintained anymore)
+- **PowerApps-docstring** is a console based, pipeline ready application that automatically generates user and technical documentation for PowerApps: https://github.com/sebastian-muthwill/powerapps-docstring
 - **Power Apps Helper** is a VSCode extension that allows you to generate a solution dependency diagram for your whole environment: https://never-stop-learning.de/analyse-dataverse-solution-dependencies/
