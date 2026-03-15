@@ -244,11 +244,21 @@ namespace PowerDocu.GUI
             };
             docOptionsInnerPanel.Controls.Add(documentDefaultColumnsCheckBox);
 
+            // Solution: Show All Components In Graph Checkbox
+            showAllComponentsInGraphCheckBox = new CheckBox()
+            {
+                Text = "Show all components in graph",
+                Checked = true,
+                AutoSize = true,
+                Location = Location = new Point(convertToDPISpecific(30), documentDefaultColumnsCheckBox.Location.Y + documentDefaultColumnsCheckBox.Height + convertToDPISpecific(5))
+            };
+            docOptionsInnerPanel.Controls.Add(showAllComponentsInGraphCheckBox);
+
             // Flows Checkbox
             flowsCheckBox = new CheckBox()
             {
                 Text = "Cloud + Agent Flows",
-                Location = new Point(convertToDPISpecific(15), documentDefaultColumnsCheckBox.Location.Y + documentDefaultColumnsCheckBox.Height + convertToDPISpecific(10)),
+                Location = new Point(convertToDPISpecific(15), showAllComponentsInGraphCheckBox.Location.Y + showAllComponentsInGraphCheckBox.Height + convertToDPISpecific(10)),
                 Checked = true,
                 AutoSize = true
             };
@@ -423,6 +433,7 @@ namespace PowerDocu.GUI
             solutionCheckBox.CheckedChanged += (sender, e) =>
             {
                 documentDefaultColumnsCheckBox.Enabled = solutionCheckBox.Checked;
+                showAllComponentsInGraphCheckBox.Enabled = solutionCheckBox.Checked;
             };
 
             flowsCheckBox.CheckedChanged += (sender, e) =>
@@ -706,7 +717,7 @@ namespace PowerDocu.GUI
         private TextBox appStatusTextBox;
         private ComboBox outputFormatComboBox, flowActionSortOrderComboBox;
         private GroupBox outputFormatGroup, documentationOptionsGroup, otherOptionsGroup;
-        private CheckBox documentDefaultsCheckBox, documentSampleDataCheckBox, documentDefaultColumnsCheckBox, appPropertiesCheckBox, variablesCheckBox, dataSourcesCheckBox, resourcesCheckBox, controlsCheckBox, appsCheckBox, agentsCheckBox, modelDrivenAppsCheckBox, flowsCheckBox, solutionCheckBox, checkForUpdatesOnLaunchCheckBox, addTableOfContentsCheckBox;
+        private CheckBox documentDefaultsCheckBox, documentSampleDataCheckBox, documentDefaultColumnsCheckBox, appPropertiesCheckBox, variablesCheckBox, dataSourcesCheckBox, resourcesCheckBox, controlsCheckBox, appsCheckBox, agentsCheckBox, modelDrivenAppsCheckBox, flowsCheckBox, solutionCheckBox, checkForUpdatesOnLaunchCheckBox, addTableOfContentsCheckBox, showAllComponentsInGraphCheckBox;
         private RadioButton documentChangesOnlyRadioButton, documentEverythingRadioButton;
         private Label wordTemplateInfoLabel, fileToParseInfoLabel, outputFormatInfoLabel,
                         flowActionSortOrderInfoLabel, newReleaseLabel, updateConnectorIconsLabel,
