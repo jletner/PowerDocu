@@ -93,8 +93,8 @@ namespace PowerDocu.AppDocumenter
 
         public AppDataSources(AppEntity app)
         {
-            infoText = $"A total of {app.DataSources.Count} DataSources are located in the app:";
-            dataSources = app.DataSources.OrderBy(o => o.Name).ToList();
+            dataSources = app.DataSources.Where(ds => !ds.isAuxiliaryDataSource()).OrderBy(o => o.Name).ToList();
+            infoText = $"A total of {dataSources.Count} DataSources are located in the app:";
         }
     }
 
@@ -178,7 +178,7 @@ namespace PowerDocu.AppDocumenter
                 "" + (app.GlobalVariables.Count + app.ContextVariables.Count)
             );
             statisticsTable.Add("Collections", "" + app.Collections.Count);
-            statisticsTable.Add("Data Sources", "" + app.DataSources.Count);
+            statisticsTable.Add("Data Sources", "" + app.DataSources.Count(ds => !ds.isAuxiliaryDataSource()));
             statisticsTable.Add("Resources", "" + app.Resources.Count);
             appProperties = app.Properties.OrderBy(o => o.expressionOperator).ToList();
             appPreviewsFlagProperty = app.Properties.Find(
