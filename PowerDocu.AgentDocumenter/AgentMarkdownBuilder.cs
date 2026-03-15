@@ -82,8 +82,12 @@ namespace PowerDocu.AgentDocumenter
                 new MdTableRow("File Analysis", ai?.isFileAnalysisEnabled == true ? "Enabled" : "Disabled"),
                 new MdTableRow("Semantic Search", ai?.isSemanticSearchEnabled == true ? "Enabled" : "Disabled"),
                 new MdTableRow("Content Moderation", ai?.contentModeration ?? "Unknown"),
-                new MdTableRow("Opt-in to Latest Models", ai?.optInUseLatestModels == true ? "Yes" : "No")
+                new MdTableRow("Opt-in to Latest Models", ai?.optInUseLatestModels == true ? "Yes" : "No"),
+                new MdTableRow("Response Model", content.agent.GetResponseModelDisplayName())
             };
+            var settingsModelHint = content.agent.GetModelNameHint();
+            if (!string.IsNullOrEmpty(settingsModelHint))
+                genAiRows.Add(new MdTableRow("Model Name Hint", settingsModelHint));
             settingsDocument.Root.Add(new MdTable(new MdTableRow(new List<string>() { "Setting", "Value" }), genAiRows));
 
             // Security
@@ -193,7 +197,11 @@ namespace PowerDocu.AgentDocumenter
             mainDocument.Root.Add(new MdHeading(content.Orchestration, 3));
             mainDocument.Root.Add(new MdParagraph(new MdTextSpan($"{content.OrchestrationText} - {content.agent.GetOrchestration()}")));
             mainDocument.Root.Add(new MdHeading(content.ResponseModel, 3));
-            mainDocument.Root.Add(new MdParagraph(new MdTextSpan($"{content.agent.GetResponseModel()}")));
+            string responseModelText = content.agent.GetResponseModelDisplayName();
+            string modelHint = content.agent.GetModelNameHint();
+            if (!string.IsNullOrEmpty(modelHint))
+                responseModelText += $" (Model: {modelHint})";
+            mainDocument.Root.Add(new MdParagraph(new MdTextSpan(responseModelText)));
             mainDocument.Root.Add(new MdHeading(content.Instructions, 3));
             AddParagraphsWithLinebreaks(mainDocument, content.agent.GetInstructions());
             mainDocument.Root.Add(new MdHeading(content.Knowledge, 3));

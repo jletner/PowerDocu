@@ -81,7 +81,11 @@ namespace PowerDocu.AgentDocumenter
 
             // Response Model
             AddHeading(content.ResponseModel, "Heading3");
-            body.AppendChild(new Paragraph(new Run(new Text(content.agent.GetResponseModel()))));
+            string responseModelText = content.agent.GetResponseModelDisplayName();
+            string modelHint = content.agent.GetModelNameHint();
+            if (!string.IsNullOrEmpty(modelHint))
+                responseModelText += $" (Model: {modelHint})";
+            body.AppendChild(new Paragraph(new Run(new Text(responseModelText))));
 
             // Instructions
             AddHeading(content.Instructions, "Heading3");
@@ -796,6 +800,10 @@ namespace PowerDocu.AgentDocumenter
             genAiTable.Append(CreateRow(new Text("Semantic Search"), new Text(ai?.isSemanticSearchEnabled == true ? "Enabled" : "Disabled")));
             genAiTable.Append(CreateRow(new Text("Content Moderation"), new Text(ai?.contentModeration ?? "Unknown")));
             genAiTable.Append(CreateRow(new Text("Opt-in to Latest Models"), new Text(ai?.optInUseLatestModels == true ? "Yes" : "No")));
+            genAiTable.Append(CreateRow(new Text("Response Model"), new Text(content.agent.GetResponseModelDisplayName())));
+            var settingsModelHint = content.agent.GetModelNameHint();
+            if (!string.IsNullOrEmpty(settingsModelHint))
+                genAiTable.Append(CreateRow(new Text("Model Name Hint"), new Text(settingsModelHint)));
             body.Append(genAiTable);
             body.AppendChild(new Paragraph(new Run(new Break())));
 

@@ -114,7 +114,11 @@ namespace PowerDocu.AgentDocumenter
             body.AppendLine(Heading(3, content.Orchestration));
             body.AppendLine(Paragraph($"{content.OrchestrationText} - {content.agent.GetOrchestration()}"));
             body.AppendLine(Heading(3, content.ResponseModel));
-            body.AppendLine(Paragraph(content.agent.GetResponseModel()));
+            string responseModelText = content.agent.GetResponseModelDisplayName();
+            string modelHint = content.agent.GetModelNameHint();
+            if (!string.IsNullOrEmpty(modelHint))
+                responseModelText += $" (Model: {modelHint})";
+            body.AppendLine(Paragraph(responseModelText));
             body.AppendLine(Heading(3, content.Instructions));
             body.AppendLine(ParagraphWithLinebreaks(content.agent.GetInstructions()));
 
@@ -837,6 +841,10 @@ namespace PowerDocu.AgentDocumenter
             body.Append(TableRow("Semantic Search", ai?.isSemanticSearchEnabled == true ? "Enabled" : "Disabled"));
             body.Append(TableRow("Content Moderation", ai?.contentModeration ?? "Unknown"));
             body.Append(TableRow("Opt-in to Latest Models", ai?.optInUseLatestModels == true ? "Yes" : "No"));
+            body.Append(TableRow("Response Model", content.agent.GetResponseModelDisplayName()));
+            var settingsModelHint = content.agent.GetModelNameHint();
+            if (!string.IsNullOrEmpty(settingsModelHint))
+                body.Append(TableRow("Model Name Hint", settingsModelHint));
             body.AppendLine(TableEnd());
 
             // Security
