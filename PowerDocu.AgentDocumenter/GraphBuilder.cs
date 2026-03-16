@@ -1621,7 +1621,40 @@ namespace PowerDocu.AgentDocumenter
             if (itemsToken != null)
             {
                 string expr = itemsToken.ToString();
-                return $"<i>Dynamic: {generateMultiLineText(System.Web.HttpUtility.HtmlEncode(expr))}</i>";
+                var rows = new List<string>();
+
+                // Try to extract and render an embedded JSON object from the expression
+                int braceStart = expr.IndexOf('{');
+                int braceEnd = expr.LastIndexOf('}');
+                if (braceStart >= 0 && braceEnd > braceStart)
+                {
+                    // Show only the prefix before the adaptive card (e.g. "ForAll(Topic.OrderDetails, ")
+                    string prefix = expr.Substring(0, braceStart).Trim();
+                    if (!string.IsNullOrEmpty(prefix))
+                        rows.Add($"<tr><td><i>{generateMultiLineText(System.Web.HttpUtility.HtmlEncode(prefix))}</i></td></tr>");
+
+                    string templateJson = expr.Substring(braceStart, braceEnd - braceStart + 1);
+                    JObject templateObj = null;
+                    try { templateObj = JObject.Parse(templateJson); } catch { }
+                    if (templateObj == null)
+                    {
+                        try { templateObj = JObject.Parse(SanitizePowerFxJson(templateJson)); } catch { }
+                    }
+                    if (templateObj != null)
+                    {
+                        string rendered = RenderCardElement(templateObj);
+                        if (!string.IsNullOrEmpty(rendered))
+                            rows.Add($"<tr><td><table border=\"1\" cellpadding=\"4\" color=\"#cccccc\">"
+                                   + $"<tr><td>{rendered}</td></tr></table></td></tr>");
+                    }
+                }
+                else
+                {
+                    // No embedded JSON found – show the full expression as fallback
+                    rows.Add($"<tr><td><i>{generateMultiLineText(System.Web.HttpUtility.HtmlEncode(expr))}</i></td></tr>");
+                }
+
+                return $"<table border=\"0\" cellpadding=\"2\">{string.Join("", rows)}</table>";
             }
             return "(empty container)";
         }
