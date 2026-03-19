@@ -31,6 +31,7 @@ namespace PowerDocu.AppDocumenter
             this.showDefaults = showDefaults;
             this.documentSampleData = documentSampleData;
             Directory.CreateDirectory(content.folderPath);
+            Directory.CreateDirectory(Path.Combine(content.folderPath, "resources"));            
             mainDocumentFileName = ("index " + content.filename + ".md").Replace(" ", "-");
             appDetailsFileName = ("appdetails " + content.filename + ".md").Replace(" ", "-");
             variablesDocumentFileName = ("variables " + content.filename + ".md").Replace(" ", "-");
@@ -110,7 +111,6 @@ namespace PowerDocu.AppDocumenter
             {
                 if (content.ResourceStreams.TryGetValue(content.appProperties.appLogo, out MemoryStream resourceStream))
                 {
-                    Directory.CreateDirectory(content.folderPath + "resources");
                     Bitmap appLogo;
                     if (!String.IsNullOrEmpty(content.appProperties.appBackgroundColour))
                     {
@@ -544,7 +544,6 @@ namespace PowerDocu.AppDocumenter
 
         private void addAppResources()
         {
-            Directory.CreateDirectory(content.folderPath + "resources");
             resourcesDocument.Root.Add(new MdHeading(content.appResources.header, 2));
             resourcesDocument.Root.Add(new MdParagraph(new MdTextSpan(content.appResources.infoText)));
             foreach (Resource resource in content.appResources.resources)
