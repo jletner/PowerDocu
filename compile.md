@@ -4,7 +4,7 @@ The information below is one possible way of compiling PowerDocu. Other options 
 
 ## Prerequisites
 To compile PowerDocu, the following prerequisites need to be installed on your Windows machine:
-* a latest .NET SDK (e.g. .NET 8) from https://aka.ms/dotnet/download  
+* a latest .NET SDK (e.g. .NET 10) from https://aka.ms/dotnet/download  
 * Git from https://git-scm.com/
 * Visual Studio Code https://code.visualstudio.com/download
 * Once VSCode has been installed, you need to add the C# extension: https://marketplace.visualstudio.com/items?itemName=ms-dotnettools.csharp
@@ -35,6 +35,13 @@ git submodule update
 ![GIT Submodule Init](Images/git-2-submodule-init.png)
 
 ![GIT Submodule Update](Images/git-3-submodule-update.png)
+
+## Building PowerDocu
+You can use the following commands to build your own version of PowerDocu
+```
+dotnet clean
+dotnet publish -c Release -r win-x64 /p:SelfContained=false
+```
 
 ## Opening PowerDocu in VSCode
 1. Open the PowerDocu folder in Visual Studio Code
