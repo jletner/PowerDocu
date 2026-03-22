@@ -49,7 +49,7 @@ namespace PowerDocu.GUI
                             $"No valid file provided, valid files are either .zip or .msapp formats");
                         break;
                     case false when options.Word && !string.IsNullOrEmpty(options.WordTemplate) &&
-                                    !new List<string> { ".docx", ".docm", ".dtox" }.Contains(
+                                    !new List<string> { ".docx", ".docm", ".dotx" }.Contains(
                                         Path.GetExtension(options.WordTemplate)):
                         NotificationHelper.SendNotification(
                             $"An invalid word document was provided as the Word Template, expected the file to be .docx, .docm or .dotx format");
@@ -91,6 +91,7 @@ namespace PowerDocu.GUI
                 configHelper.documentAppControls = options.DocumentAppControls;
                 configHelper.documentDefaultColumns = options.DocumentDefaultColumns;
                 configHelper.addTableOfContents = options.AddTableOfContents;
+                configHelper.showAllComponentsInGraph = options.ShowAllComponentsInGraph;
                 configHelper.documentModelDrivenApps = options.DocumentModelDrivenApps;
                 switch (Path.GetExtension(itemToDocument))
                 {
